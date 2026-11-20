@@ -16,7 +16,6 @@ function showToast(message) {
   setTimeout(() => toastEl.classList.remove('show'), 2400);
 }
 
-// Navegación entre pestañas móviles
 document.querySelectorAll('.nav-item').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
@@ -27,7 +26,6 @@ document.querySelectorAll('.nav-item').forEach(btn => {
   });
 });
 
-// Cargar elementos desde el backend
 async function loadItems() {
   try {
     const res = await fetch('/api/items');
@@ -84,7 +82,6 @@ function renderItems(items) {
   });
 }
 
-// Crear nuevo registro
 itemForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const title = itemTitle.value.trim();
@@ -106,7 +103,6 @@ itemForm.addEventListener('submit', async (e) => {
   }
 });
 
-// Marcar / desmarcar completado
 async function toggleItem(id) {
   try {
     await fetch(`/api/items/${id}`, { method: 'PATCH' });
@@ -116,7 +112,6 @@ async function toggleItem(id) {
   }
 }
 
-// Eliminar registro
 async function deleteItem(id) {
   try {
     await fetch(`/api/items/${id}`, { method: 'DELETE' });
@@ -142,14 +137,12 @@ document.getElementById('testApiBtn').addEventListener('click', async () => {
   }
 });
 
-// Registro de Service Worker (PWA)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
 
-// Botón de instalación PWA
 const installBtn = document.getElementById('installBtn');
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
