@@ -57,6 +57,14 @@ function saveDB() {
 
 const OFFERWALL_PROVIDERS = [
   {
+    id: 'timewall',
+    name: 'TimeWall Encuestas y Tareas',
+    badge: 'ACTIVO',
+    description: 'Completa encuestas, clics y micro-tareas con acreditación automática.',
+    iframeUrl: process.env.TIMEWALL_WALL_URL || 'https://timewall.io/users/login?oid=1be50b5db408a909&uid={user_id}',
+    color: '#2563eb'
+  },
+  {
     id: 'adgem',
     name: 'AdGem Games',
     badge: '2X PUNTOS',
@@ -256,20 +264,23 @@ app.post('/api/offers/claim', (req, res) => {
   });
 });
 
-// Postback S2S estándar para Offerwalls (AdGem, Torox, ayeT, CPX)
-app.get('/api/postback', (req, res) => {
-  const { user_id, amount, tx_id, secret } = req.query;
-  const expectedSecret = process.env.POSTBACK_SECRET || 'MI_CLAVE_SECRETA';
+// Postback S2S compatible con TimeWall y Offerwalls (AdGem, Torox, ayeT)
+app.get(['/api/postback', '/api/postback/'], (req, res) => {
+  const userId = req.query.userid || req.query.user_id;
+  const amount = req.query.amount;
+  const txId = req.query.txid || req.query.tx_id;
+  const secret = req.query.secret;
+  const expectedSecret = process.env.POSTBACK_SECRET || 'CLAVE2026';
 
   if (secret !== expectedSecret) {
     return res.status(403).send('INVALID_SECRET');
   }
-  if (!user_id || !amount) {
+  if (!userId || !amount) {
     return res.status(400).send('MISSING_PARAMS');
   }
 
-  const user = getOrCreateUser(String(user_id));
-  const txKey = tx_id ? `tx_${tx_id}` : null;
+  const user = getOrCreateUser(String(userId));
+  const txKey = txId ? `tx_${txId}` : null;
   if (txKey && user.completedOffers.includes(txKey)) {
     return res.status(200).send('ALREADY_CREDITED');
   }
@@ -280,7 +291,7 @@ app.get('/api/postback', (req, res) => {
   creditReferralCommission(user, earned);
   saveDB();
 
-  console.log(`Postback acreditado: +${earned} monedas a ${user_id}`);
+  console.log(`Postback acreditado: +${earned} monedas a ${userId}`);
   res.status(200).send('OK');
 });
 
@@ -324,7 +335,7 @@ app.post('/api/withdraw', (req, res) => {
 // Panel de administración (ver todos los retiros y usuarios)
 app.get('/api/admin/overview', (req, res) => {
   const secret = req.query.secret;
-  const expectedSecret = process.env.POSTBACK_SECRET || 'MI_CLAVE_SECRETA';
+  const expectedSecret = process.env.POSTBACK_SECRET || 'CLAVE2026';
   if (secret !== expectedSecret) {
     return res.status(403).json({ error: 'Clave secreta inválida' });
   }
@@ -345,3 +356,4 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`CashPlay Offerwall v2 ejecutándose en http://localhost:${PORT}`);
 });
+    
