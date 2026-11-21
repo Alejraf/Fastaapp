@@ -53,14 +53,12 @@
     nav button.active { color: #38bdf8; font-weight: 700; }
     .toast { position: fixed; bottom: 75px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #334155; color: #f8fafc; padding: 10px 18px; border-radius: 999px; font-size: 13px; display: none; z-index: 50; text-align: center; max-width: 90%; }
 
-    /* Escudo Antifraude Visible */
     .security-lock { display: none; position: fixed; inset: 0; background: #0b1120; color: #f8fafc; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
     .security-lock .shield { font-size: 52px; margin-bottom: 14px; }
     .security-lock h2 { color: #f87171; font-size: 20px; margin-bottom: 10px; }
     .security-lock p { color: #cbd5e1; font-size: 14px; max-width: 360px; line-height: 1.5; margin-bottom: 16px; }
     .security-badge { background: rgba(248, 113, 113, 0.15); border: 1px solid rgba(248, 113, 113, 0.4); color: #fca5a5; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
 
-    /* Aviso de Verificación y Enlaces Legales */
     .verify-box { background: rgba(250, 204, 21, 0.08); border: 1px solid rgba(250, 204, 21, 0.35); border-radius: 12px; padding: 12px; margin-top: 14px; font-size: 12px; color: #fde68a; line-height: 1.45; }
     .legal-links { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 16px; padding-top: 12px; border-top: 1px solid #1e293b; font-size: 12px; }
     .legal-links a { color: #38bdf8; text-decoration: none; font-weight: 600; cursor: pointer; }
@@ -71,7 +69,6 @@
   </style>
 </head>
 <body>
-  <!-- Pantalla de Bloqueo Antifraude -->
   <div class="security-lock" id="securityLock">
     <div class="shield">🛡️</div>
     <h2 id="secLockTitle">Acesso Bloqueado por Segurança</h2>
@@ -79,7 +76,6 @@
     <span class="security-badge" id="secLockCode">ANTI-FRAUD SHIELD ACTIVE</span>
   </div>
 
-  <!-- Modal Términos y Privacidad -->
   <div class="legal-modal" id="legalModal" onclick="if(event.target===this) closeLegal()">
     <div class="legal-content">
       <h3 id="legalModalTitle">Termos de Uso</h3>
@@ -286,8 +282,7 @@
         toastWdSent: 'Solicitação de saque enviada para verificação!',
         toastWdErr: 'Erro ao solicitar saque',
         toastConnErr: 'Erro ao conectar com o servidor',
-        toastAdBlocked: 'Permita pop-ups ou desative o AdBlock para abrir o anúncio patrocinado.',
-        toastAdViewing: 'Anúncio aberto! Volte aqui após 6s para receber suas +20 moedas...',
+        toastAdViewing: 'Anúncio aberto! Feche o anúncio após 5s para receber suas +20 moedas...',
         secTitle: 'Acesso Bloqueado por Segurança',
         secEmu: 'Emuladores, navegadores automatizados ou dispositivos modificados/root não são permitidos no CashPlay.',
         secVpn: 'VPN ou Proxy detectado (inconsistência de fuso horário/IP). Desative sua VPN para continuar.',
@@ -346,8 +341,7 @@
         toastWdSent: 'Solicitud de retiro enviada a verificación',
         toastWdErr: 'Error al solicitar retiro',
         toastConnErr: 'Error al conectar con el servidor',
-        toastAdBlocked: 'Permite ventanas emergentes o desactiva AdBlock para abrir el anuncio patrocinado.',
-        toastAdViewing: '¡Anuncio abierto! Regresa aquí tras 6s para liberar tus +20 monedas...',
+        toastAdViewing: '¡Anuncio abierto! Ciérralo tras 5s para recibir tus +20 monedas...',
         secTitle: 'Acceso Bloqueado por Seguridad',
         secEmu: 'No se permiten emuladores, navegadores automatizados ni dispositivos modificados/rooteados en CashPlay.',
         secVpn: 'VPN o Proxy detectado (inconsistencia de zona horaria/IP). Desactiva tu VPN para continuar.',
@@ -485,13 +479,16 @@
       }
     }
 
-    let pendingAdStart = null;
+    let pendingAdStart = Number(localStorage.getItem('cashplay_ad_start') || 0) || null;
     let pendingAdInterval = null;
+    let isFinalizingBonus = false;
 
     async function finalizeDailyBonus() {
       const btn = document.getElementById('dailyBonusBtn');
-      if (!pendingAdStart) return;
+      if (!pendingAdStart || isFinalizingBonus) return;
+      isFinalizingBonus = true;
       pendingAdStart = null;
+      localStorage.removeItem('cashplay_ad_start');
       if (pendingAdInterval) {
         clearInterval(pendingAdInterval);
         pendingAdInterval = null;
@@ -509,6 +506,7 @@
       } catch (err) {
         showToast(I18N[currentLang].toastConnErr);
       } finally {
+        isFinalizingBonus = false;
         if (btn) {
           btn.disabled = false;
           btn.textContent = I18N[currentLang].dailyBtn;
@@ -516,29 +514,34 @@
       }
     }
 
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && pendingAdStart) {
+    function checkPendingAd() {
+      const saved = Number(localStorage.getItem('cashplay_ad_start') || 0);
+      if (saved && !pendingAdStart) pendingAdStart = saved;
+      if (pendingAdStart) {
         const elapsed = Date.now() - pendingAdStart;
-        if (elapsed >= 5000) {
+        if (elapsed >= 4000) {
           finalizeDailyBonus();
         }
       }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkPendingAd();
     });
+    window.addEventListener('focus', checkPendingAd);
 
     async function claimDailyBonus() {
       const t = I18N[currentLang];
       const btn = document.getElementById('dailyBonusBtn');
       if (btn && btn.disabled) return;
 
-      const adWin = window.open(MONETAG_DIRECT_LINK, '_blank', 'noopener');
-      if (!adWin) {
-        showToast(t.toastAdBlocked);
-        return;
-      }
+      pendingAdStart = Date.now();
+      localStorage.setItem('cashplay_ad_start', String(pendingAdStart));
+
+      window.open(MONETAG_DIRECT_LINK, '_blank');
 
       if (btn) btn.disabled = true;
       showToast(t.toastAdViewing);
-      pendingAdStart = Date.now();
 
       pendingAdInterval = setInterval(() => {
         if (!pendingAdStart) {
@@ -546,7 +549,7 @@
           return;
         }
         const elapsedSec = Math.floor((Date.now() - pendingAdStart) / 1000);
-        const left = Math.max(0, 6 - elapsedSec);
+        const left = Math.max(0, 5 - elapsedSec);
         if (left > 0) {
           btn.textContent = I18N[currentLang].dailyWait.replace('{s}', left);
         } else {
@@ -579,7 +582,7 @@
       if (name && name.toLowerCase().includes('timewall')) {
         showToast(t.toastOpeningTw);
         const url = 'https://timewall.io/users/login?oid=' + TIMEWALL_OID + '&uid=' + encodeURIComponent(USER_ID);
-        window.open(url, '_blank', 'noopener');
+        window.open(url, '_blank');
         return;
       }
       showToast(t.toastToroxSoon);
@@ -596,7 +599,10 @@
     (async function initApp() {
       applyLanguage();
       const safe = await runAntiFraudShield();
-      if (safe) loadDashboard();
+      if (safe) {
+        await loadDashboard();
+        checkPendingAd();
+      }
     })();
   </script>
 </body>
