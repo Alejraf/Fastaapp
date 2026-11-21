@@ -2,189 +2,262 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1120" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>CashPlay • Gana Dinero Instalando Juegos y Apps</title>
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-  <link rel="stylesheet" href="/styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CashPlay - Gana Dinero Real</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0b1120; color: #f8fafc; padding-bottom: 80px; }
+    header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #0f172a; border-bottom: 1px solid #1e293b; position: sticky; top: 0; z-index: 10; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .logo { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #06b6d4, #3b82f6); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .brand h1 { font-size: 16px; font-weight: 700; }
+    .brand span { font-size: 11px; color: #94a3b8; display: block; }
+    .balance-pill { background: #1e293b; border: 1px solid #334155; padding: 6px 12px; border-radius: 999px; display: flex; align-items: center; gap: 8px; }
+    .coin-icon { width: 20px; height: 20px; background: #eab308; color: #0f172a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; }
+    .balance-text strong { display: block; font-size: 14px; color: #facc15; line-height: 1.1; }
+    .balance-text small { font-size: 11px; color: #38bdf8; }
+    .container { padding: 16px; max-width: 600px; margin: 0 auto; }
+    .hero { background: linear-gradient(135deg, #064e3b, #0f172a); border: 1px solid #059669; border-radius: 16px; padding: 16px; margin-bottom: 20px; }
+    .badge-active { display: inline-block; background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; margin-bottom: 8px; }
+    .hero h2 { font-size: 18px; margin-bottom: 6px; line-height: 1.3; }
+    .hero p { font-size: 13px; color: #94a3b8; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 12px; }
+    .section-header h3 { font-size: 15px; font-weight: 700; }
+    .section-header span { font-size: 12px; color: #94a3b8; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+    .card-left { display: flex; align-items: center; gap: 12px; }
+    .card-icon { width: 46px; height: 46px; border-radius: 12px; background: #0f172a; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+    .card-info h4 { font-size: 15px; margin-bottom: 3px; }
+    .card-info .reward { color: #facc15; font-weight: 700; font-size: 13px; }
+    .card-info p { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+    .tag { font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: #334155; color: #38bdf8; white-space: nowrap; }
+    .offers-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .offer-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 14px; text-align: center; cursor: pointer; }
+    .offer-card .icon { font-size: 32px; margin-bottom: 8px; }
+    .offer-card h4 { font-size: 14px; margin-bottom: 6px; }
+    .offer-card .coins { color: #facc15; font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+    .offer-card small { color: #94a3b8; font-size: 11px; display: block; }
+    .btn { background: #2563eb; color: #fff; border: none; padding: 12px 16px; border-radius: 10px; font-weight: 700; width: 100%; cursor: pointer; font-size: 14px; margin-top: 10px; }
+    input, select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #334155; background: #0f172a; color: #fff; margin-top: 8px; font-size: 14px; }
+    .tab-view { display: none; }
+    .tab-view.active { display: block; }
+    nav { position: fixed; bottom: 0; left: 0; right: 0; background: #0f172a; border-top: 1px solid #1e293b; display: flex; justify-content: space-around; padding: 10px 0; }
+    nav button { background: none; border: none; color: #94a3b8; font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+    nav button.active { color: #38bdf8; font-weight: 700; }
+    .toast { position: fixed; bottom: 75px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #334155; color: #f8fafc; padding: 10px 18px; border-radius: 999px; font-size: 13px; display: none; z-index: 50; }
+  </style>
 </head>
 <body>
-  <div class="app-shell">
-    <!-- Cabecera fija con saldo -->
-    <header class="topbar">
-      <div class="brand">
-        <div class="logo-box">💎</div>
-        <div>
-          <h1>CashPlay</h1>
-          <span class="user-id-tag" id="userIdBadge">ID: ...</span>
-        </div>
+  <header>
+    <div class="brand">
+      <div class="logo">💎</div>
+      <div>
+        <h1>CashPlay</h1>
+        <span id="userIdLabel">ID: usr_1sojely</span>
+      </div>
+    </div>
+    <div class="balance-pill">
+      <div class="coin-icon">C</div>
+      <div class="balance-text">
+        <strong id="coinsBalance">500</strong>
+        <small id="usdBalance">$0.50</small>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="tab-ganar" class="tab-view active">
+      <div class="hero">
+        <div class="badge-active">🔥 RECOMPENSAS ACTIVAS</div>
+        <h2>Instala juegos y apps, cumple misiones y cobra dinero real</h2>
+        <p>1,000 monedas = $1.00 USD / R$ 5,00</p>
+        <button class="btn" onclick="claimDailyBonus()">🎁 Reclamar Bono Diario (+100 monedas)</button>
       </div>
 
-      <div class="topbar-right">
-        <button id="installBtn" class="btn-install hidden">Instalar</button>
-        <div class="wallet-pill" id="walletPill">
-          <span class="coin-icon">🪙</span>
-          <div>
-            <strong id="coinBalance">0</strong>
-            <small id="fiatBalance">$0.00</small>
-          </div>
-        </div>
+      <div class="section-header">
+        <h3>Muros de Ofertas (Offerwalls)</h3>
+        <span>Toca para abrir</span>
       </div>
-    </header>
 
-    <main class="main-content">
-      <!-- VISTA 1: GANAR -->
-      <section id="view-earn" class="view active">
-        <div class="hero-banner">
-          <span class="pill-hot">🔥 RECOMPENSAS ACTIVAS</span>
-          <h2>Instala juegos y apps, cumple misiones y cobra dinero real</h2>
-          <p>1,000 monedas = <strong>$1.00 USD</strong> / <strong>R$ 5,00</strong></p>
-        </div>
-
-        <div class="section-head">
-          <h3>Muros de Ofertas (Offerwalls)</h3>
-          <span class="hint-text">Toca para abrir</span>
-        </div>
-        <div id="providersGrid" class="providers-grid"></div>
-
-        <div class="section-head" style="margin-top: 18px;">
-          <h3>Juegos y Apps Destacados</h3>
-          <span class="hint-text" id="offersCount">0 disponibles</span>
-        </div>
-        <div id="offersList" class="offers-list"></div>
-      </section>
-
-      <!-- VISTA 2: INVITAR AMIGOS (REFERIDOS) -->
-      <section id="view-referrals" class="view">
-        <div class="ref-banner">
-          <span class="pill-hot">🤝 PROGRAMA DE REFERIDOS</span>
-          <h2>Invita amigos y gana +300 monedas + 10% de por vida</h2>
-          <p>Tu amigo recibe <strong>+250 monedas</strong> al entrar con tu enlace y tú ganas el 10% de todo lo que genere en Offerwalls.</p>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-box">
-            <strong id="refCount">0</strong>
-            <span>Amigos invitados</span>
-          </div>
-          <div class="stat-box">
-            <strong id="refEarned">0 🪙</strong>
-            <span>Ganado por referidos</span>
+      <div class="card" onclick="openOfferwall('TimeWall')">
+        <div class="card-left">
+          <div class="card-icon">🧱</div>
+          <div class="card-info">
+            <h4>TimeWall</h4>
+            <div class="reward">+1,200 monedas</div>
+            <p>Tareas y Encuestas</p>
           </div>
         </div>
+        <span class="tag">POPULAR</span>
+      </div>
 
-        <div class="card-box">
-          <h3>Tu Enlace de Invitación</h3>
-          <div class="copy-row">
-            <input type="text" id="refLinkInput" readonly />
-            <button id="copyRefBtn" class="btn-secondary">Copiar</button>
-          </div>
-          <button id="shareRefBtn" class="btn-primary" style="margin-top: 10px;">Compartir por WhatsApp / Redes</button>
-        </div>
-
-        <div class="card-box" id="applyRefBox">
-          <h3>¿Tienes un código de invitación?</h3>
-          <p class="muted">Canjéalo una sola vez para recibir +250 monedas de regalo.</p>
-          <div class="copy-row">
-            <input type="text" id="manualRefInput" placeholder="Ej: CASH-DEMO" />
-            <button id="applyRefBtn" class="btn-secondary">Canjear</button>
+      <div class="card" onclick="openOfferwall('Torox / AdGem')">
+        <div class="card-left">
+          <div class="card-icon">🎯</div>
+          <div class="card-info">
+            <h4>OfferToro / Torox</h4>
+            <div class="reward">+2,500 monedas</div>
+            <p>Juegos y Apps</p>
           </div>
         </div>
-      </section>
+        <span class="tag">RECOMENDADO</span>
+      </div>
 
-      <!-- VISTA 3: RETIRAR -->
-      <section id="view-cashout" class="view">
-        <div class="balance-card">
-          <span>Saldo disponible para retiro</span>
-          <h2 id="cashoutCoins">0 monedas</h2>
-          <p id="cashoutUsd">Equivalente a $0.00 USD / R$ 0,00</p>
-        </div>
+      <div class="section-header">
+        <h3>Juegos y Apps Destacados</h3>
+        <span id="offersCount">0 disponibles</span>
+      </div>
+      <div class="offers-grid" id="offersGrid"></div>
+    </div>
 
-        <form id="withdrawForm" class="card-box">
-          <h3>Solicitar Pago</h3>
-          <label>Método de pago</label>
-          <select id="payMethod">
-            <option value="PIX (Brasil)">PIX (Brasil - Instantáneo)</option>
-            <option value="PayPal">PayPal (USD)</option>
-            <option value="Binance USDT">Binance Pay (USDT)</option>
-            <option value="Recarga Móvil">Recarga Telefónica</option>
-          </select>
-
-          <label>Cuenta, Correo o Llave PIX</label>
-          <input type="text" id="payAccount" placeholder="Ej: tuemail@paypal.com o llave PIX" required />
-
-          <label>Cantidad de monedas (Mín. 5,000)</label>
-          <div class="preset-row">
-            <button type="button" class="preset-btn" data-coins="5000">5,000 ($5)</button>
-            <button type="button" class="preset-btn" data-coins="10000">10,000 ($10)</button>
-            <button type="button" class="preset-btn" data-coins="25000">25,000 ($25)</button>
-          </div>
-          <input type="number" id="withdrawCoins" min="5000" step="1000" value="5000" required />
-
-          <button type="submit" class="btn-primary">Retirar Dinero</button>
-        </form>
-
-        <div class="section-head" style="margin-top: 16px;">
-          <h3>Historial de Retiros</h3>
-        </div>
-        <div id="withdrawHistory" class="history-list"></div>
-      </section>
-
-      <!-- VISTA 4: PERFIL & ADMIN -->
-      <section id="view-profile" class="view">
-        <div class="card-box">
-          <h3>Tu Cuenta de Jugador</h3>
-          <p class="muted">Cada dispositivo genera un ID único automáticamente. También puedes cambiarlo si tienes otro usuario.</p>
-          <div class="copy-row">
-            <input type="text" id="customUserIdInput" />
-            <button id="switchUserBtn" class="btn-secondary">Cambiar ID</button>
-          </div>
-        </div>
-
-        <div class="card-box">
-          <h3>URL Postback S2S (Redes Offerwall)</h3>
-          <p class="muted">Pega esta URL en AdGem, Torox, ayeT-Studios o CPX Research para acreditar monedas automáticamente:</p>
-          <code class="postback-code" id="postbackUrlBox"></code>
-        </div>
-      </section>
-    </main>
-
-    <!-- Modal de Offerwall -->
-    <div id="wallModal" class="modal hidden">
-      <div class="modal-sheet">
-        <div class="modal-header">
-          <h3 id="wallModalTitle">Offerwall</h3>
-          <button id="closeWallModal" class="btn-close">✕</button>
-        </div>
-        <div id="wallModalBody" class="modal-body"></div>
+    <div id="tab-invitar" class="tab-view">
+      <div class="hero">
+        <div class="badge-active">🤝 PROGRAMA DE REFERIDOS</div>
+        <h2>Gana el 10% de por vida por cada amigo invitado</h2>
+        <p>Comparte tu enlace y recibe monedas automáticamente cuando completen ofertas.</p>
+        <input type="text" id="refLink" readonly />
+        <button class="btn" onclick="copyRefLink()">Copiar enlace de invitación</button>
       </div>
     </div>
 
-    <!-- Barra de navegación inferior (4 pestañas) -->
-    <nav class="bottom-nav">
-      <button class="nav-btn active" data-view="view-earn">
-        <span class="nav-icon">🎮</span>
-        <span>Ganar</span>
-      </button>
-      <button class="nav-btn" data-view="view-referrals">
-        <span class="nav-icon">🤝</span>
-        <span>Invitar</span>
-      </button>
-      <button class="nav-btn" data-view="view-cashout">
-        <span class="nav-icon">💸</span>
-        <span>Retirar</span>
-      </button>
-      <button class="nav-btn" data-view="view-profile">
-        <span class="nav-icon">👤</span>
-        <span>Perfil</span>
-      </button>
-    </nav>
+    <div id="tab-retirar" class="tab-view">
+      <div class="hero">
+        <div class="badge-active">💸 RETIROS RÁPIDOS</div>
+        <h2>Canjea tus monedas por dinero real</h2>
+        <p>Mínimo de retiro: 2,000 monedas ($2.00 USD / R$ 10,00)</p>
+        <select id="withdrawMethod">
+          <option value="PIX">PIX (Brasil)</option>
+          <option value="PayPal">PayPal (USD)</option>
+          <option value="Binance USDT">Binance Pay (USDT)</option>
+        </select>
+        <input type="text" id="withdrawAccount" placeholder="Tu llave PIX, correo PayPal o ID Binance" />
+        <input type="number" id="withdrawAmount" value="2000" min="2000" step="500" />
+        <button class="btn" onclick="requestWithdraw()">Solicitar Retiro</button>
+      </div>
+    </div>
+
+    <div id="tab-perfil" class="tab-view">
+      <div class="hero">
+        <div class="badge-active">👤 MI CUENTA</div>
+        <h2 id="profileUserId">Usuario: usr_1sojely</h2>
+        <p id="cloudStatus">Sincronizando con la nube...</p>
+      </div>
+      <div class="section-header">
+        <h3>Historial reciente</h3>
+      </div>
+      <div id="historyList"></div>
+    </div>
   </div>
 
-  <div id="toast" class="toast"></div>
-  <script src="/app.js"></script>
+  <div class="toast" id="toast"></div>
+
+  <nav>
+    <button class="active" onclick="switchTab('ganar', this)">🎮<span>Ganar</span></button>
+    <button onclick="switchTab('invitar', this)">🤝<span>Invitar</span></button>
+    <button onclick="switchTab('retirar', this)">💸<span>Retirar</span></button>
+    <button onclick="switchTab('perfil', this)">👤<span>Perfil</span></button>
+  </nav>
+
+  <script>
+    const USER_ID = localStorage.getItem('cashplay_uid') || 'usr_1sojely';
+    localStorage.setItem('cashplay_uid', USER_ID);
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 3500);
+    }
+
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    async function loadDashboard() {
+      try {
+        const res = await fetch('/api/dashboard?userId=' + encodeURIComponent(USER_ID));
+        const data = await res.json();
+        if (!data.ok) throw new Error('Respuesta inválida');
+
+        document.getElementById('userIdLabel').textContent = 'ID: ' + data.user.id;
+        document.getElementById('profileUserId').textContent = 'Usuario: ' + data.user.id;
+        document.getElementById('coinsBalance').textContent = data.user.coins.toLocaleString();
+        document.getElementById('usdBalance').textContent = '$' + (data.user.coins / 1000).toFixed(2);
+        document.getElementById('refLink').value = window.location.origin + '/?ref=' + data.user.id;
+        document.getElementById('cloudStatus').textContent = data.firestoreActive
+          ? '✅ Saldo respaldado en Firebase Firestore'
+          : '⚠️ Modo temporal activo';
+
+        const offers = data.offers || [];
+        document.getElementById('offersCount').textContent = offers.length + ' disponibles';
+        document.getElementById('offersGrid').innerHTML = offers.map(o => `
+          <div class="offer-card" onclick="window.open('${o.url}', '_blank')">
+            <div class="icon">${o.icon}</div>
+            <h4>${o.title}</h4>
+            <div class="coins">+${o.reward.toLocaleString()} monedas</div>
+            <small>${o.subtitle}</small>
+          </div>
+        `).join('');
+
+        const history = data.user.history || [];
+        document.getElementById('historyList').innerHTML = history.map(h => `
+          <div class="card">
+            <div class="card-info">
+              <h4>${h.title}</h4>
+              <p>${new Date(h.date).toLocaleString()}</p>
+            </div>
+            <span class="tag">${h.amount > 0 ? '+' : ''}${h.amount}</span>
+          </div>
+        `).join('');
+      } catch (err) {
+        showToast('Error al conectar con el servidor');
+      }
+    }
+
+    async function claimDailyBonus() {
+      const res = await fetch('/api/daily-bonus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: USER_ID })
+      });
+      const data = await res.json();
+      showToast(data.message || 'Listo');
+      if (data.ok) loadDashboard();
+    }
+
+    async function requestWithdraw() {
+      const method = document.getElementById('withdrawMethod').value;
+      const account = document.getElementById('withdrawAccount').value.trim();
+      const amountCoins = Number(document.getElementById('withdrawAmount').value);
+      const res = await fetch('/api/withdraw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: USER_ID, method, account, amountCoins })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('Solicitud de retiro enviada');
+        loadDashboard();
+      } else {
+        showToast(data.message || 'Error al solicitar retiro');
+      }
+    }
+
+    function openOfferwall(name) {
+      showToast('Abriendo muro ' + name + ' para ID: ' + USER_ID);
+    }
+
+    function copyRefLink() {
+      const input = document.getElementById('refLink');
+      input.select();
+      navigator.clipboard.writeText(input.value);
+      showToast('Enlace de invitación copiado');
+    }
+
+    loadDashboard();
+  </script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 {
-  "name": "cashplay-offerwall-v2",
-  "version": "2.1.0",
-  "description": "Plataforma GPT / Offerwall CashPlay con Firestore y TimeWall S2S",
+  "name": "cashplay-offerwall",
+  "version": "2.2.0",
+  "description": "CashPlay Offerwall con persistencia en Firebase Firestore",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
