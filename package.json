@@ -1,7 +1,7 @@
 {
-  "name": "mobile-webapp-starter",
-  "version": "1.0.0",
-  "description": "Aplicación Web Móvil PWA completa con Frontend (HTML/CSS/JS) y Backend en Node.js (Express)",
+  "name": "cashplay-offerwall-v2",
+  "version": "2.0.0",
+  "description": "App Web Móvil PWA de recompensas con Offerwalls, Referidos, Base de Datos Persistente y Postbacks S2S",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

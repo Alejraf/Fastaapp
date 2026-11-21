@@ -1,11 +1,11 @@
 {
-  "name": "Mobile Web App",
-  "short_name": "MobileApp",
-  "description": "Aplicación Web Móvil PWA con Backend Node.js",
+  "name": "CashPlay Offerwall Rewards",
+  "short_name": "CashPlay",
+  "description": "Instala juegos y apps, invita amigos y gana dinero real",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#0b1120",
+  "theme_color": "#0b1120",
   "orientation": "portrait",
   "icons": [
     {

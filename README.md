@@ -1,7 +1,8 @@
-# Mobile Web App (Estructura plana para GitHub + Render)
+# CashPlay v2 • App de Recompensas con Offerwalls, Referidos y Persistencia
 
-Todos los archivos están listos en la raíz para subirse directamente mediante **"Add files via upload"** en GitHub sin necesidad de crear subcarpetas.
+Aplicación Web Móvil PWA completa con backend en Node.js lista para GitHub y Render.
 
-## Comandos en Render
-- **Build Command:** `npm install`
-- **Start Command:** `npm start`
+## Novedades incluidas
+- **Base de datos persistente (`database.json`)**: Guarda usuarios, monedas, ofertas completadas, referidos y solicitudes de retiro. (Si conectas un Persistent Disk en Render, configura `DATA_DIR=/var/data`).
+- **Sistema de Referidos viral**: Cada usuario recibe su propio enlace (`/?ref=CASH-XXXX`), gana +300 monedas por invitación y un **10% de comisión automática** sobre lo que ganen sus invitados en Offerwalls.
+- **Postback S2S (`/api/postback`)** y **Endpoint Admin (`/api/admin/overview?secret=TU_CLAVE`)** para revisar usuarios y pagos pendientes.

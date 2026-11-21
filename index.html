@@ -3,101 +3,188 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#0b1120" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Mobile Web App</title>
+  <title>CashPlay • Gana Dinero Instalando Juegos y Apps</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div class="app-shell">
-    <header class="app-header">
-      <div class="header-content">
+    <!-- Cabecera fija con saldo -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-box">💎</div>
         <div>
-          <h1 id="pageTitle">Inicio</h1>
-          <p class="subtitle" id="connectionStatus">Conectando...</p>
+          <h1>CashPlay</h1>
+          <span class="user-id-tag" id="userIdBadge">ID: ...</span>
         </div>
-        <button id="installBtn" class="btn-install hidden" aria-label="Instalar App">Instalar</button>
+      </div>
+
+      <div class="topbar-right">
+        <button id="installBtn" class="btn-install hidden">Instalar</button>
+        <div class="wallet-pill" id="walletPill">
+          <span class="coin-icon">🪙</span>
+          <div>
+            <strong id="coinBalance">0</strong>
+            <small id="fiatBalance">$0.00</small>
+          </div>
+        </div>
       </div>
     </header>
 
-    <main class="app-main">
-      <section id="view-home" class="view active">
-        <div class="stats-row">
-          <div class="stat-card">
-            <span class="stat-value" id="totalCount">0</span>
-            <span class="stat-label">Total</span>
+    <main class="main-content">
+      <!-- VISTA 1: GANAR -->
+      <section id="view-earn" class="view active">
+        <div class="hero-banner">
+          <span class="pill-hot">🔥 RECOMPENSAS ACTIVAS</span>
+          <h2>Instala juegos y apps, cumple misiones y cobra dinero real</h2>
+          <p>1,000 monedas = <strong>$1.00 USD</strong> / <strong>R$ 5,00</strong></p>
+        </div>
+
+        <div class="section-head">
+          <h3>Muros de Ofertas (Offerwalls)</h3>
+          <span class="hint-text">Toca para abrir</span>
+        </div>
+        <div id="providersGrid" class="providers-grid"></div>
+
+        <div class="section-head" style="margin-top: 18px;">
+          <h3>Juegos y Apps Destacados</h3>
+          <span class="hint-text" id="offersCount">0 disponibles</span>
+        </div>
+        <div id="offersList" class="offers-list"></div>
+      </section>
+
+      <!-- VISTA 2: INVITAR AMIGOS (REFERIDOS) -->
+      <section id="view-referrals" class="view">
+        <div class="ref-banner">
+          <span class="pill-hot">🤝 PROGRAMA DE REFERIDOS</span>
+          <h2>Invita amigos y gana +300 monedas + 10% de por vida</h2>
+          <p>Tu amigo recibe <strong>+250 monedas</strong> al entrar con tu enlace y tú ganas el 10% de todo lo que genere en Offerwalls.</p>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <strong id="refCount">0</strong>
+            <span>Amigos invitados</span>
           </div>
-          <div class="stat-card">
-            <span class="stat-value" id="pendingCount">0</span>
-            <span class="stat-label">Pendientes</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-value" id="doneCount">0</span>
-            <span class="stat-label">Listos</span>
+          <div class="stat-box">
+            <strong id="refEarned">0 🪙</strong>
+            <span>Ganado por referidos</span>
           </div>
         </div>
 
-        <form id="itemForm" class="add-form">
-          <input type="text" id="itemTitle" placeholder="Nueva tarea o registro..." required autocomplete="off" />
-          <div class="form-row">
-            <select id="itemCategory">
-              <option value="General">General</option>
-              <option value="Desarrollo">Desarrollo</option>
-              <option value="Contenido">Contenido</option>
-              <option value="Urgente">Urgente</option>
-            </select>
-            <button type="submit" class="btn-primary">+ Agregar</button>
+        <div class="card-box">
+          <h3>Tu Enlace de Invitación</h3>
+          <div class="copy-row">
+            <input type="text" id="refLinkInput" readonly />
+            <button id="copyRefBtn" class="btn-secondary">Copiar</button>
           </div>
+          <button id="shareRefBtn" class="btn-primary" style="margin-top: 10px;">Compartir por WhatsApp / Redes</button>
+        </div>
+
+        <div class="card-box" id="applyRefBox">
+          <h3>¿Tienes un código de invitación?</h3>
+          <p class="muted">Canjéalo una sola vez para recibir +250 monedas de regalo.</p>
+          <div class="copy-row">
+            <input type="text" id="manualRefInput" placeholder="Ej: CASH-DEMO" />
+            <button id="applyRefBtn" class="btn-secondary">Canjear</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA 3: RETIRAR -->
+      <section id="view-cashout" class="view">
+        <div class="balance-card">
+          <span>Saldo disponible para retiro</span>
+          <h2 id="cashoutCoins">0 monedas</h2>
+          <p id="cashoutUsd">Equivalente a $0.00 USD / R$ 0,00</p>
+        </div>
+
+        <form id="withdrawForm" class="card-box">
+          <h3>Solicitar Pago</h3>
+          <label>Método de pago</label>
+          <select id="payMethod">
+            <option value="PIX (Brasil)">PIX (Brasil - Instantáneo)</option>
+            <option value="PayPal">PayPal (USD)</option>
+            <option value="Binance USDT">Binance Pay (USDT)</option>
+            <option value="Recarga Móvil">Recarga Telefónica</option>
+          </select>
+
+          <label>Cuenta, Correo o Llave PIX</label>
+          <input type="text" id="payAccount" placeholder="Ej: tuemail@paypal.com o llave PIX" required />
+
+          <label>Cantidad de monedas (Mín. 5,000)</label>
+          <div class="preset-row">
+            <button type="button" class="preset-btn" data-coins="5000">5,000 ($5)</button>
+            <button type="button" class="preset-btn" data-coins="10000">10,000 ($10)</button>
+            <button type="button" class="preset-btn" data-coins="25000">25,000 ($25)</button>
+          </div>
+          <input type="number" id="withdrawCoins" min="5000" step="1000" value="5000" required />
+
+          <button type="submit" class="btn-primary">Retirar Dinero</button>
         </form>
 
-        <div class="section-header">
-          <h2>Registros recientes</h2>
-          <button id="refreshBtn" class="btn-ghost" title="Actualizar">Actualizar</button>
+        <div class="section-head" style="margin-top: 16px;">
+          <h3>Historial de Retiros</h3>
         </div>
-
-        <ul id="itemsList" class="item-list"></ul>
+        <div id="withdrawHistory" class="history-list"></div>
       </section>
 
-      <section id="view-explore" class="view">
-        <div class="card">
-          <h3>Arquitectura lista para producción</h3>
-          <p>Este proyecto está estructurado con diseño <strong>Mobile-First</strong>, navegación inferior táctil, <strong>Service Worker</strong> para caché offline y API REST en Node.js/Express.</p>
+      <!-- VISTA 4: PERFIL & ADMIN -->
+      <section id="view-profile" class="view">
+        <div class="card-box">
+          <h3>Tu Cuenta de Jugador</h3>
+          <p class="muted">Cada dispositivo genera un ID único automáticamente. También puedes cambiarlo si tienes otro usuario.</p>
+          <div class="copy-row">
+            <input type="text" id="customUserIdInput" />
+            <button id="switchUserBtn" class="btn-secondary">Cambiar ID</button>
+          </div>
         </div>
-        <div class="card">
-          <h3>Compatible con APK / PWA</h3>
-          <p>Incluye <code>manifest.json</code> válido para instalar directamente en Android/iOS o empaquetar como TWA/WebView APK tras desplegar en Render.</p>
-        </div>
-      </section>
 
-      <section id="view-settings" class="view">
-        <div class="card">
-          <h3>Estado del Backend</h3>
-          <p id="apiInfo">Endpoint activo: <code>/api/items</code></p>
-          <button id="testApiBtn" class="btn-secondary">Probar conexión API</button>
+        <div class="card-box">
+          <h3>URL Postback S2S (Redes Offerwall)</h3>
+          <p class="muted">Pega esta URL en AdGem, Torox, ayeT-Studios o CPX Research para acreditar monedas automáticamente:</p>
+          <code class="postback-code" id="postbackUrlBox"></code>
         </div>
       </section>
     </main>
 
-    <nav class="bottom-nav" aria-label="Navegación principal">
-      <button class="nav-item active" data-target="view-home" data-title="Inicio">
-        <span class="nav-icon">⌂</span>
-        <span class="nav-text">Inicio</span>
+    <!-- Modal de Offerwall -->
+    <div id="wallModal" class="modal hidden">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h3 id="wallModalTitle">Offerwall</h3>
+          <button id="closeWallModal" class="btn-close">✕</button>
+        </div>
+        <div id="wallModalBody" class="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Barra de navegación inferior (4 pestañas) -->
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-view="view-earn">
+        <span class="nav-icon">🎮</span>
+        <span>Ganar</span>
       </button>
-      <button class="nav-item" data-target="view-explore" data-title="Detalles">
-        <span class="nav-icon">◈</span>
-        <span class="nav-text">Detalles</span>
+      <button class="nav-btn" data-view="view-referrals">
+        <span class="nav-icon">🤝</span>
+        <span>Invitar</span>
       </button>
-      <button class="nav-item" data-target="view-settings" data-title="Ajustes">
-        <span class="nav-icon">⚙</span>
-        <span class="nav-text">Ajustes</span>
+      <button class="nav-btn" data-view="view-cashout">
+        <span class="nav-icon">💸</span>
+        <span>Retirar</span>
+      </button>
+      <button class="nav-btn" data-view="view-profile">
+        <span class="nav-icon">👤</span>
+        <span>Perfil</span>
       </button>
     </nav>
   </div>
 
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast"></div>
   <script src="/app.js"></script>
 </body>
 </html>

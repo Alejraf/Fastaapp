@@ -1,155 +1,305 @@
-const itemsList = document.getElementById('itemsList');
-const itemForm = document.getElementById('itemForm');
-const itemTitle = document.getElementById('itemTitle');
-const itemCategory = document.getElementById('itemCategory');
-const totalCount = document.getElementById('totalCount');
-const pendingCount = document.getElementById('pendingCount');
-const doneCount = document.getElementById('doneCount');
-const connectionStatus = document.getElementById('connectionStatus');
-const toastEl = document.getElementById('toast');
-
-let deferredPrompt = null;
-
-function showToast(message) {
-  toastEl.textContent = message;
-  toastEl.classList.add('show');
-  setTimeout(() => toastEl.classList.remove('show'), 2400);
+// Generar o recuperar ID único del dispositivo automáticamente
+function getDeviceUserId() {
+  let id = localStorage.getItem('cp_user_id');
+  if (!id) {
+    id = 'usr_' + Math.random().toString(36).substring(2, 9);
+    localStorage.setItem('cp_user_id', id);
+  }
+  return id;
 }
 
-document.querySelectorAll('.nav-item').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(btn.dataset.target).classList.add('active');
-    document.getElementById('pageTitle').textContent = btn.dataset.title;
-  });
-});
+let currentUserId = getDeviceUserId();
+let appState = null;
 
-async function loadItems() {
+// Capturar parámetro ?ref=CODIGO si el usuario entró por un enlace de invitación
+const urlParams = new URLSearchParams(window.location.search);
+const incomingRef = urlParams.get('ref');
+if (incomingRef) {
+  localStorage.setItem('cp_pending_ref', incomingRef);
+}
+
+const toastEl = document.getElementById('toast');
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(() => toastEl.classList.remove('show'), 2600);
+}
+
+function switchView(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+  const activeBtn = document.querySelector(`.nav-btn[data-view="${viewId}"]`);
+  if (activeBtn) activeBtn.classList.add('active');
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchView(btn.dataset.view));
+});
+document.getElementById('walletPill').addEventListener('click', () => switchView('view-cashout'));
+
+async function loadDashboard() {
   try {
-    const res = await fetch('/api/items');
-    if (!res.ok) throw new Error('Error de red');
-    const data = await res.json();
-    connectionStatus.textContent = 'En línea • API conectada';
-    connectionStatus.style.color = '#10b981';
-    renderItems(data);
-  } catch (err) {
-    connectionStatus.textContent = 'Modo sin conexión';
-    connectionStatus.style.color = '#f59e0b';
-    showToast('No se pudo conectar con el servidor');
+    const pendingRef = localStorage.getItem('cp_pending_ref') || '';
+    const query = `userId=${encodeURIComponent(currentUserId)}&ref=${encodeURIComponent(pendingRef)}`;
+    const res = await fetch(`/api/dashboard?${query}`);
+    appState = await res.json();
+    if (pendingRef) localStorage.removeItem('cp_pending_ref');
+    renderAll();
+  } catch {
+    showToast('Error al conectar con el servidor');
   }
 }
 
-function renderItems(items) {
-  totalCount.textContent = items.length;
-  const done = items.filter(i => i.completed).length;
-  doneCount.textContent = done;
-  pendingCount.textContent = items.length - done;
+function renderAll() {
+  if (!appState) return;
+  const { user, providers, offers, conversionRate } = appState;
+  const origin = window.location.origin;
 
-  itemsList.innerHTML = '';
-  if (items.length === 0) {
-    itemsList.innerHTML = '<li class="card"><p>No hay registros todavía. Agrega el primero arriba.</p></li>';
+  document.getElementById('userIdBadge').textContent = `ID: ${user.id}`;
+  document.getElementById('customUserIdInput').value = user.id;
+
+  const usd = (user.coins / conversionRate).toFixed(2);
+  const brl = ((user.coins / conversionRate) * 5).toFixed(2).replace('.', ',');
+
+  document.getElementById('coinBalance').textContent = user.coins.toLocaleString();
+  document.getElementById('fiatBalance').textContent = `$${usd}`;
+  document.getElementById('cashoutCoins').textContent = `${user.coins.toLocaleString()} monedas`;
+  document.getElementById('cashoutUsd').textContent = `Equivalente a $${usd} USD / R$ ${brl}`;
+
+  // Referidos
+  document.getElementById('refCount').textContent = user.referralsCount || 0;
+  document.getElementById('refEarned').textContent = `${(user.referralEarnings || 0).toLocaleString()} 🪙`;
+  document.getElementById('refLinkInput').value = `${origin}/?ref=${user.referralCode}`;
+  if (user.referredBy) {
+    document.getElementById('applyRefBox').classList.add('hidden');
+  }
+
+  // URL de Postback S2S
+  document.getElementById('postbackUrlBox').textContent =
+    `${origin}/api/postback?user_id={user_id}&amount={amount}&tx_id={tx_id}&secret=MI_CLAVE_SECRETA`;
+
+  // Offerwalls
+  const providersGrid = document.getElementById('providersGrid');
+  providersGrid.innerHTML = '';
+  providers.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'provider-card';
+    btn.innerHTML = `
+      <span class="provider-badge" style="background:${p.color}">${p.badge}</span>
+      <div>
+        <h4>${p.name}</h4>
+        <p>${p.description}</p>
+      </div>
+    `;
+    btn.addEventListener('click', () => openOfferwall(p));
+    providersGrid.appendChild(btn);
+  });
+
+  // Juegos y Apps Destacados
+  const offersList = document.getElementById('offersList');
+  offersList.innerHTML = '';
+  document.getElementById('offersCount').textContent = `${offers.length} disponibles`;
+
+  offers.forEach(offer => {
+    const isClaimed = user.completedOffers.includes(offer.id);
+    const card = document.createElement('div');
+    card.className = 'offer-card';
+    card.innerHTML = `
+      <div class="offer-left">
+        <div class="offer-icon">${offer.icon}</div>
+        <div class="offer-info">
+          <h4>${offer.title}</h4>
+          <p>${offer.task}</p>
+          <span class="offer-tag">${offer.category} • ${offer.platform}</span>
+        </div>
+      </div>
+      <button class="btn-reward ${isClaimed ? 'claimed' : ''}" ${isClaimed ? 'disabled' : ''}>
+        ${isClaimed ? '✓ Listo' : `+${offer.rewardCoins} 🪙`}
+      </button>
+    `;
+    if (!isClaimed) {
+      card.querySelector('.btn-reward').addEventListener('click', () => startOffer(offer));
+    }
+    offersList.appendChild(card);
+  });
+
+  // Historial de retiros
+  const historyEl = document.getElementById('withdrawHistory');
+  historyEl.innerHTML = '';
+  if (!user.withdrawals || user.withdrawals.length === 0) {
+    historyEl.innerHTML = '<p class="muted">Aún no has realizado retiros.</p>';
+  } else {
+    user.withdrawals.forEach(w => {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = `
+        <div>
+          <strong>${w.method} • $${w.usdValue} USD</strong>
+          <small>${w.account} (${w.coins.toLocaleString()} monedas)</small>
+        </div>
+        <span class="status-pill">${w.status}</span>
+      `;
+      historyEl.appendChild(div);
+    });
+  }
+}
+
+function openOfferwall(provider) {
+  if (provider.directUrl) {
+    window.open(provider.directUrl, '_blank', 'noopener');
+    claimOffer('monetag_bonus', provider.rewardCoins || 150);
     return;
   }
 
-  items.forEach(item => {
-    const li = document.createElement('li');
-    li.className = `item-card ${item.completed ? 'completed' : ''}`;
+  const modal = document.getElementById('wallModal');
+  document.getElementById('wallModalTitle').textContent = provider.name;
+  const body = document.getElementById('wallModalBody');
 
-    const mainDiv = document.createElement('div');
-    mainDiv.className = 'item-main';
-    mainDiv.innerHTML = `
-      <span class="checkbox">${item.completed ? '✓' : ''}</span>
-      <div>
-        <span class="item-title"></span>
-        <span class="item-badge"></span>
+  if (provider.iframeUrl) {
+    const finalUrl = provider.iframeUrl.replace('{user_id}', encodeURIComponent(currentUserId));
+    body.innerHTML = `<iframe class="wall-iframe" src="${finalUrl}" allow="autoplay; clipboard-write"></iframe>`;
+  } else {
+    body.innerHTML = `
+      <div class="card-box">
+        <h3>Muro de Ofertas ${provider.name}</h3>
+        <p class="muted">Configura <code>${provider.id.toUpperCase()}_WALL_URL</code> en Render para cargar automáticamente todo su catálogo de juegos y apps.</p>
+        <button id="simulateWallBtn" class="btn-primary">Simular instalación completada (+600 monedas)</button>
       </div>
     `;
-    mainDiv.querySelector('.item-title').textContent = item.title;
-    mainDiv.querySelector('.item-badge').textContent = item.category;
-    mainDiv.addEventListener('click', () => toggleItem(item.id));
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-delete';
-    delBtn.textContent = '✕';
-    delBtn.setAttribute('aria-label', 'Eliminar');
-    delBtn.addEventListener('click', () => deleteItem(item.id));
-
-    li.appendChild(mainDiv);
-    li.appendChild(delBtn);
-    itemsList.appendChild(li);
-  });
+    document.getElementById('simulateWallBtn').addEventListener('click', () => {
+      claimOffer(`sim_${provider.id}_${Date.now()}`, 600);
+      modal.classList.add('hidden');
+    });
+  }
+  modal.classList.remove('hidden');
 }
 
-itemForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const title = itemTitle.value.trim();
-  const category = itemCategory.value;
-  if (!title) return;
+document.getElementById('closeWallModal').addEventListener('click', () => {
+  document.getElementById('wallModal').classList.add('hidden');
+});
 
+function startOffer(offer) {
+  window.open(offer.url, '_blank', 'noopener');
+  showToast('Abriendo oferta... acreditando recompensa');
+  setTimeout(() => claimOffer(offer.id, offer.rewardCoins), 1200);
+}
+
+async function claimOffer(offerId, coins) {
   try {
-    const res = await fetch('/api/items', {
+    const res = await fetch('/api/offers/claim', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, category })
+      body: JSON.stringify({ userId: currentUserId, offerId, coins })
     });
-    if (!res.ok) throw new Error('Error al guardar');
-    itemTitle.value = '';
-    showToast('Registro agregado');
-    loadItems();
-  } catch (err) {
-    showToast('Error al guardar en el servidor');
-  }
-});
-
-async function toggleItem(id) {
-  try {
-    await fetch(`/api/items/${id}`, { method: 'PATCH' });
-    loadItems();
-  } catch (err) {
-    showToast('Error al actualizar');
-  }
-}
-
-async function deleteItem(id) {
-  try {
-    await fetch(`/api/items/${id}`, { method: 'DELETE' });
-    showToast('Registro eliminado');
-    loadItems();
-  } catch (err) {
-    showToast('Error al eliminar');
-  }
-}
-
-document.getElementById('refreshBtn').addEventListener('click', () => {
-  loadItems();
-  showToast('Lista actualizada');
-});
-
-document.getElementById('testApiBtn').addEventListener('click', async () => {
-  try {
-    const res = await fetch('/api/health');
     const data = await res.json();
-    showToast(`API OK: ${new Date(data.timestamp).toLocaleTimeString()}`);
+    if (data.success) {
+      showToast(`🎉 +${data.addedCoins} monedas acreditadas`);
+      loadDashboard();
+    } else {
+      showToast(data.error || 'No se pudo reclamar');
+    }
   } catch {
-    showToast('Error al contactar /api/health');
+    showToast('Error de conexión');
+  }
+}
+
+// Referidos: copiar, compartir y canjear
+document.getElementById('copyRefBtn').addEventListener('click', async () => {
+  const input = document.getElementById('refLinkInput');
+  try {
+    await navigator.clipboard.writeText(input.value);
+    showToast('Enlace de invitación copiado');
+  } catch {
+    input.select();
+    document.execCommand('copy');
+    showToast('Enlace copiado');
   }
 });
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
-}
+document.getElementById('shareRefBtn').addEventListener('click', () => {
+  const link = document.getElementById('refLinkInput').value;
+  const text = `¡Gana dinero instalando juegos y apps en CashPlay! Usa mi enlace y recibe +250 monedas gratis: ${link}`;
+  if (navigator.share) {
+    navigator.share({ title: 'CashPlay Rewards', text, url: link }).catch(() => {});
+  } else {
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  }
+});
 
+document.getElementById('applyRefBtn').addEventListener('click', async () => {
+  const code = document.getElementById('manualRefInput').value.trim();
+  if (!code) return;
+  try {
+    const res = await fetch('/api/referral/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUserId, code })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`🎁 +${data.bonus} monedas de bienvenida acreditadas`);
+      loadDashboard();
+    } else {
+      showToast(data.error || 'Código inválido');
+    }
+  } catch {
+    showToast('Error al aplicar código');
+  }
+});
+
+// Retiros
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('withdrawCoins').value = btn.dataset.coins;
+  });
+});
+
+document.getElementById('withdrawForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const method = document.getElementById('payMethod').value;
+  const account = document.getElementById('payAccount').value;
+  const coins = Number(document.getElementById('withdrawCoins').value);
+
+  try {
+    const res = await fetch('/api/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUserId, method, account, coins })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✅ Solicitud de retiro enviada');
+      document.getElementById('payAccount').value = '';
+      loadDashboard();
+    } else {
+      showToast(data.error || 'Error al retirar');
+    }
+  } catch {
+    showToast('Error de red al procesar retiro');
+  }
+});
+
+document.getElementById('switchUserBtn').addEventListener('click', () => {
+  const newId = document.getElementById('customUserIdInput').value.trim();
+  if (!newId) return;
+  currentUserId = newId;
+  localStorage.setItem('cp_user_id', currentUserId);
+  showToast(`Sesión cambiada a ${currentUserId}`);
+  loadDashboard();
+});
+
+// PWA Service Worker & Install
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+let deferredPrompt = null;
 const installBtn = document.getElementById('installBtn');
-window.addEventListener('beforeinstallprompt', (e) => {
+window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
   installBtn.classList.remove('hidden');
 });
-
 installBtn.addEventListener('click', async () => {
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
@@ -158,4 +308,4 @@ installBtn.addEventListener('click', async () => {
   installBtn.classList.add('hidden');
 });
 
-loadItems();
+loadDashboard();
