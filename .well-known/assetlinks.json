@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "sbs.cashplayapp.twa",
+        "sha256_cert_fingerprints": ["44:C3:FF:71:54:2B:6D:32:BE:FA:CA:18:42:26:50:F8:AA:82:93:76:A5:9B:7A:C2:78:24:55:42:B1:A6:F2:CA"]
+      }
+    }]
