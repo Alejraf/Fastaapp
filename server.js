@@ -128,7 +128,7 @@ async function saveState() {
   }
 }
 
-function getOrCreateUser(state, userId) {
+function getOrCreateUser(state, userId, clientIp) {
   const cleanId = (userId || 'usr_1sojely').trim();
   if (!state.users[cleanId]) {
     state.users[cleanId] = {
@@ -141,6 +141,7 @@ function getOrCreateUser(state, userId) {
       referralsCount: 0,
       referralEarnings: 0,
       lastDailyBonus: null,
+      lastIp: clientIp || null,
       createdAt: new Date().toISOString(),
       history: [
         {
@@ -152,14 +153,22 @@ function getOrCreateUser(state, userId) {
         }
       ]
     };
+  } else if (clientIp) {
+    state.users[cleanId].lastIp = clientIp;
   }
   return state.users[cleanId];
+}
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return String(forwarded).split(',')[0].trim();
+  return req.socket?.remoteAddress || '';
 }
 
 // Endpoint principal del Dashboard
 app.get('/api/dashboard', async (req, res) => {
   const state = await loadState();
-  const user = getOrCreateUser(state, req.query.userId);
+  const user = getOrCreateUser(state, req.query.userId, getClientIp(req));
   await saveState();
 
   const userWithdrawals = state.withdrawals.filter(w => w.userId === user.id);
@@ -173,32 +182,34 @@ app.get('/api/dashboard', async (req, res) => {
   });
 });
 
-// Bono diario
+// Bono diario reducido (+20 monedas tras ver anuncio Monetag)
 app.post('/api/daily-bonus', async (req, res) => {
+  const DAILY_REWARD = 20;
   const state = await loadState();
-  const user = getOrCreateUser(state, req.body.userId);
+  const clientIp = getClientIp(req);
+  const user = getOrCreateUser(state, req.body.userId, clientIp);
   const today = new Date().toISOString().slice(0, 10);
 
   if (user.lastDailyBonus === today) {
     return res.status(400).json({ ok: false, message: 'Ya reclamaste tu bono diario hoy.' });
   }
 
-  user.coins += 100;
-  user.totalEarned += 100;
+  user.coins += DAILY_REWARD;
+  user.totalEarned += DAILY_REWARD;
   user.lastDailyBonus = today;
   user.history.unshift({
     id: 'tx_' + Date.now(),
     type: 'bonus',
-    title: 'Bono diario',
-    amount: 100,
+    title: 'Bono diario (Anuncio Monetag)',
+    amount: DAILY_REWARD,
     date: new Date().toISOString()
   });
 
   await saveState();
-  res.json({ ok: true, coins: user.coins, message: '+100 monedas acreditadas' });
+  res.json({ ok: true, coins: user.coins, message: `+${DAILY_REWARD} monedas acreditadas` });
 });
 
-// Solicitud de retiro
+// Solicitud de retiro con registro de IP para auditoría antifraude
 app.post('/api/withdraw', async (req, res) => {
   const { userId, method, account, amountCoins } = req.body;
   const coins = Number(amountCoins);
@@ -207,7 +218,8 @@ app.post('/api/withdraw', async (req, res) => {
   }
 
   const state = await loadState();
-  const user = getOrCreateUser(state, userId);
+  const clientIp = getClientIp(req);
+  const user = getOrCreateUser(state, userId, clientIp);
 
   if (user.coins < coins) {
     return res.status(400).json({ ok: false, message: 'Saldo insuficiente.' });
@@ -221,6 +233,7 @@ app.post('/api/withdraw', async (req, res) => {
     account,
     coins,
     usd: (coins / 1000).toFixed(2),
+    ip: clientIp,
     status: 'pendiente',
     createdAt: new Date().toISOString()
   };
@@ -238,7 +251,7 @@ app.post('/api/withdraw', async (req, res) => {
   res.json({ ok: true, coins: user.coins, withdrawal });
 });
 
-// Postback S2S para Offerwalls (TimeWall, Torox, AdGem, etc.)
+// Postback S2S para Offerwalls (TimeWall, ayeT-Studios, Torox, etc.)
 app.get('/api/postback', async (req, res) => {
   const secret = req.query.secret || req.query.key;
   if (secret !== POSTBACK_SECRET) {
@@ -343,7 +356,7 @@ app.get('/admin', async (req, res) => {
           <span style="background:${badgeColor};color:#fff;padding:3px 10px;border-radius:20px;font-size:12px;text-transform:uppercase">${w.status}</span>
         </div>
         <div style="font-size:14px;color:#cbd5e1;margin-bottom:4px"><strong>Cuenta / Llave:</strong> ${w.account}</div>
-        <div style="font-size:13px;color:#94a3b8;margin-bottom:10px">Usuario: ${w.userId} • ${new Date(w.createdAt).toLocaleString()}</div>
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:10px">Usuario: ${w.userId} • IP: ${w.ip || 'N/A'} • ${new Date(w.createdAt).toLocaleString()}</div>
         ${isPending ? `
           <div style="display:flex;gap:10px">
             <button onclick="updateWd('${w.id}','approve')" style="flex:1;background:#16a34a;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer">✅ Marcar Pagado</button>
@@ -390,6 +403,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`CashPlay Offerwall v2.2 ejecutándose en http://localhost:${PORT}`);
+  console.log(`CashPlay Offerwall v2.3 ejecutándose en http://localhost:${PORT}`);
 });
-                      
