@@ -275,8 +275,11 @@ app.get('/api/postback', async (req, res) => {
   res.status(200).send('OK');
 });
 
-// Endpoint de administración
+// Endpoint JSON de administración (protegido)
 app.get('/api/admin/overview', async (req, res) => {
+  if (req.query.secret !== POSTBACK_SECRET) {
+    return res.status(403).json({ ok: false, message: 'Clave incorrecta' });
+  }
   const state = await loadState();
   res.json({
     firestoreActive,
@@ -287,7 +290,101 @@ app.get('/api/admin/overview', async (req, res) => {
   });
 });
 
-// Fallback para servir siempre public/index.html en /, /?v=2 o cualquier ruta SPA
+// Acción para aprobar o rechazar retiro desde el panel
+app.post('/api/admin/withdraw-action', async (req, res) => {
+  const { secret, withdrawalId, action } = req.body;
+  if (secret !== POSTBACK_SECRET) {
+    return res.status(403).json({ ok: false, message: 'Clave incorrecta' });
+  }
+
+  const state = await loadState();
+  const wd = state.withdrawals.find(w => w.id === withdrawalId);
+  if (!wd) {
+    return res.status(404).json({ ok: false, message: 'Retiro no encontrado' });
+  }
+
+  if (action === 'approve') {
+    wd.status = 'pagado';
+    wd.paidAt = new Date().toISOString();
+  } else if (action === 'reject' && wd.status === 'pendiente') {
+    wd.status = 'rechazado';
+    const user = state.users[wd.userId];
+    if (user) {
+      user.coins += wd.coins;
+      user.history.unshift({
+        id: 'ref_' + Date.now(),
+        type: 'bonus',
+        title: `Reembolso retiro rechazado (${wd.method})`,
+        amount: wd.coins,
+        date: new Date().toISOString()
+      });
+    }
+  }
+
+  await saveState();
+  res.json({ ok: true });
+});
+
+// Panel visual móvil para gestionar retiros con un toque
+app.get('/admin', async (req, res) => {
+  if (req.query.secret !== POSTBACK_SECRET) {
+    return res.status(403).send('<h2 style="font-family:sans-serif;text-align:center;margin-top:40px">Acceso denegado. Agrega ?secret=TU_CLAVE en la URL</h2>');
+  }
+
+  const state = await loadState();
+  const totalUsers = Object.keys(state.users).length;
+  const rows = state.withdrawals.map(w => {
+    const isPending = w.status === 'pendiente';
+    const badgeColor = w.status === 'pagado' ? '#16a34a' : (w.status === 'rechazado' ? '#dc2626' : '#d97706');
+    return `
+      <div style="background:#1e293b;padding:15px;border-radius:12px;margin-bottom:12px;border:1px solid #334155">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong style="font-size:16px;color:#38bdf8">${w.method} — $${w.usd} USD (${w.coins} monedas)</strong>
+          <span style="background:${badgeColor};color:#fff;padding:3px 10px;border-radius:20px;font-size:12px;text-transform:uppercase">${w.status}</span>
+        </div>
+        <div style="font-size:14px;color:#cbd5e1;margin-bottom:4px"><strong>Cuenta / Llave:</strong> ${w.account}</div>
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:10px">Usuario: ${w.userId} • ${new Date(w.createdAt).toLocaleString()}</div>
+        ${isPending ? `
+          <div style="display:flex;gap:10px">
+            <button onclick="updateWd('${w.id}','approve')" style="flex:1;background:#16a34a;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer">✅ Marcar Pagado</button>
+            <button onclick="updateWd('${w.id}','reject')" style="flex:1;background:#dc2626;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer">❌ Rechazar</button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>Admin CashPlay</title>
+    </head>
+    <body style="background:#0f172a;color:#f8fafc;font-family:system-ui,sans-serif;padding:16px;max-width:600px;margin:auto">
+      <h2 style="margin-bottom:4px">💎 Panel Admin CashPlay</h2>
+      <p style="color:#94a3b8;margin-top:0">Usuarios totales: <strong>${totalUsers}</strong> • Firestore: <strong>${firestoreActive ? 'Activo' : 'Memoria'}</strong></p>
+      <h3 style="border-bottom:1px solid #334155;padding-bottom:8px">Solicitudes de Retiro (${state.withdrawals.length})</h3>
+      ${rows || '<p style="color:#94a3b8">Aún no hay solicitudes de retiro.</p>'}
+      <script>
+        async function updateWd(id, action) {
+          if (!confirm(action === 'approve' ? '¿Confirmar que ya enviaste el pago?' : '¿Rechazar retiro y devolver las monedas al usuario?')) return;
+          const res = await fetch('/api/admin/withdraw-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret: '${POSTBACK_SECRET}', withdrawalId: id, action })
+          });
+          if (res.ok) location.reload();
+          else alert('Error al actualizar');
+        }
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// Fallback para servir siempre index.html en /, /?v=2 o cualquier ruta SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -295,3 +392,4 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`CashPlay Offerwall v2.2 ejecutándose en http://localhost:${PORT}`);
 });
+                      
