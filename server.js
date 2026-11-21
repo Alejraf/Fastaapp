@@ -5,355 +5,399 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DB_FILE = path.join(__dirname, 'database.json');
+const POSTBACK_SECRET = process.env.POSTBACK_SECRET || 'CLAVE2026';
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Persistencia en archivo JSON (configurable con DATA_DIR si usas un Persistent Disk en Render)
-const DATA_DIR = process.env.DATA_DIR || __dirname;
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-const DB_FILE = path.join(DATA_DIR, 'database.json');
-
-function loadDB() {
+// Inicializar Firebase Firestore si existe FIREBASE_SERVICE_ACCOUNT
+let firestoreDb = null;
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   try {
-    if (fs.existsSync(DB_FILE)) {
-      const raw = fs.readFileSync(DB_FILE, 'utf8');
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.users) return parsed;
-    }
+    const admin = require('firebase-admin');
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    firestoreDb = admin.firestore();
+    console.log('✅ Conectado a Firebase Firestore correctamente.');
   } catch (err) {
-    console.error('Error leyendo database.json:', err);
-  }
-  return {
-    users: {
-      'user_demo': {
-        id: 'user_demo',
-        username: 'Jugador',
-        coins: 1250,
-        referralCode: 'CASH-DEMO',
-        referredBy: null,
-        referralsCount: 0,
-        referralEarnings: 0,
-        completedOffers: ['offer_welcome'],
-        withdrawals: [],
-        createdAt: new Date().toISOString()
-      }
-    }
-  };
-}
-
-let db = loadDB();
-
-function saveDB() {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Error guardando database.json:', err);
+    console.error('⚠️ Error inicializando Firebase:', err.message);
   }
 }
 
-const OFFERWALL_PROVIDERS = [
+const DEFAULT_OFFERS = [
   {
-    id: 'timewall',
-    name: 'TimeWall Encuestas y Tareas',
-    badge: 'ACTIVO',
-    description: 'Completa encuestas, clics y micro-tareas con acreditación automática.',
-    iframeUrl: process.env.TIMEWALL_WALL_URL || 'https://timewall.io/users/login?oid=1be50b5db408a909&uid={user_id}',
-    color: '#2563eb'
-  },
-  {
-    id: 'adgem',
-    name: 'AdGem Games',
-    badge: '2X PUNTOS',
-    description: 'Instala juegos móviles y sube de nivel para ganar grandes recompensas.',
-    iframeUrl: process.env.ADGEM_WALL_URL || '',
-    color: '#3b82f6'
-  },
-  {
-    id: 'offertoro',
-    name: 'Torox / OfferToro',
-    badge: 'POPULAR',
-    description: 'Tareas rápidas, registro en apps y pruebas gratuitas.',
-    iframeUrl: process.env.OFFERTORO_WALL_URL || '',
-    color: '#8b5cf6'
-  },
-  {
-    id: 'ayetstudios',
-    name: 'ayeT-Studios',
-    badge: 'ALTO PAGO',
-    description: 'Juegos recomendados con pago instantáneo al completar misiones.',
-    iframeUrl: process.env.AYET_WALL_URL || '',
-    color: '#10b981'
-  },
-  {
-    id: 'monetag_bonus',
-    name: 'Bono Diario Patrocinado',
-    badge: '+150 MONEDAS',
-    description: 'Abre el enlace patrocinado y reclama monedas extra cada día.',
-    directUrl: process.env.MONETAG_DIRECT_LINK || 'https://uplcm.com/4/12301967',
-    rewardCoins: 150,
-    color: '#f59e0b'
-  }
-];
-
-const FEATURED_OFFERS = [
-  {
-    id: 'game_lords',
+    id: 'off_lords',
     title: 'Lords Mobile: Guerra de Reinos',
+    subtitle: 'Instala y alcanza el Castillo Nivel 11',
+    reward: 2400,
     category: 'Juego',
     platform: 'Android / iOS',
-    task: 'Instala y alcanza el Castillo Nivel 11',
-    rewardCoins: 2400,
+    badge: 'HOT',
     icon: '🏰',
-    url: process.env.OFFER_1_URL || 'https://uplcm.com/4/12301967'
+    url: 'https://www.google.com/search?q=Lords+Mobile'
   },
   {
-    id: 'game_merge',
-    title: 'Merge Dragons!',
-    category: 'Juego',
-    platform: 'Android',
-    task: 'Instala y completa el nivel Foothills 3',
-    rewardCoins: 1800,
-    icon: '🐉',
-    url: process.env.OFFER_2_URL || 'https://uplcm.com/4/12301967'
-  },
-  {
-    id: 'app_finance',
-    title: 'App Cashback & Finanzas',
+    id: 'off_tiktok',
+    title: 'TikTok Lite - Recompensas',
+    subtitle: 'Descarga, regístrate y mira videos 3 minutos',
+    reward: 1200,
     category: 'App',
-    platform: 'Android / iOS',
-    task: 'Descarga, regístrate y verifica tu cuenta',
-    rewardCoins: 950,
-    icon: '💳',
-    url: process.env.OFFER_3_URL || 'https://uplcm.com/4/12301967'
+    platform: 'Android',
+    badge: 'RÁPIDO',
+    icon: '🎵',
+    url: 'https://www.google.com/search?q=TikTok+Lite'
   },
   {
-    id: 'game_puzzle',
-    title: 'Block Puzzle Jewel',
-    category: 'Juego Rápido',
-    platform: 'Android',
-    task: 'Juega durante 5 minutos seguidos',
-    rewardCoins: 450,
-    icon: '🧩',
-    url: process.env.OFFER_4_URL || 'https://uplcm.com/4/12301967'
+    id: 'off_survey',
+    title: 'Encuesta Perfil Consumidor LATAM',
+    subtitle: 'Responde 12 preguntas sobre hábitos digitales',
+    reward: 850,
+    category: 'Encuesta',
+    platform: 'Web',
+    badge: 'FÁCIL',
+    icon: '📋',
+    url: 'https://www.google.com/search?q=Encuestas+remuneradas'
+  },
+  {
+    id: 'off_nubank',
+    title: 'Cuenta Digital Sin Comisiones',
+    subtitle: 'Abre tu cuenta gratuita y verifica identidad',
+    reward: 4500,
+    category: 'Finanzas',
+    platform: 'Android / iOS',
+    badge: 'TOP PAGO',
+    icon: '💳',
+    url: 'https://www.google.com/search?q=Cuenta+digital'
   }
 ];
 
-function makeReferralCode(userId) {
-  const clean = String(userId).replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6);
-  return 'CASH-' + (clean || Math.random().toString(36).substring(2, 6).toUpperCase());
-}
+let db = {
+  users: {},
+  withdrawals: [],
+  postbacks: [],
+  offers: DEFAULT_OFFERS
+};
 
-function getOrCreateUser(userId = 'user_demo', refCode = null) {
-  const cleanId = String(userId).trim() || 'user_demo';
-  if (!db.users[cleanId]) {
-    const newUser = {
-      id: cleanId,
-      username: 'Jugador',
-      coins: 500, // Bono de bienvenida
-      referralCode: makeReferralCode(cleanId),
+function ensureDemoUser() {
+  if (!db.users['usr_demo1']) {
+    db.users['usr_demo1'] = {
+      id: 'usr_demo1',
+      name: 'Jugador CashPlay',
+      coins: 500,
+      totalEarned: 500,
+      referralCode: 'CASH500',
       referredBy: null,
       referralsCount: 0,
       referralEarnings: 0,
-      completedOffers: [],
-      withdrawals: [],
-      createdAt: new Date().toISOString()
+      lastDailyBonus: null,
+      createdAt: new Date().toISOString(),
+      history: [
+        {
+          id: 'tx_welcome',
+          type: 'bonus',
+          title: 'Bono de bienvenida',
+          amount: 500,
+          date: new Date().toISOString()
+        }
+      ]
     };
+  }
+}
 
-    // Aplicar código de referido si es válido y distinto al propio usuario
-    if (refCode) {
-      const sponsor = Object.values(db.users).find(
-        u => u.referralCode && u.referralCode.toUpperCase() === String(refCode).trim().toUpperCase() && u.id !== cleanId
-      );
-      if (sponsor) {
-        newUser.referredBy = sponsor.id;
-        newUser.coins += 250; // Bono extra para el invitado
-        sponsor.coins += 300; // Bono por invitación al padrino
-        sponsor.referralsCount = (sponsor.referralsCount || 0) + 1;
-        sponsor.referralEarnings = (sponsor.referralEarnings || 0) + 300;
+async function initDB() {
+  if (firestoreDb) {
+    try {
+      const doc = await firestoreDb.collection('cashplay_system').doc('main_db').get();
+      if (doc.exists) {
+        const data = doc.data();
+        db = {
+          users: data.users || {},
+          withdrawals: data.withdrawals || [],
+          postbacks: data.postbacks || [],
+          offers: data.offers && data.offers.length ? data.offers : DEFAULT_OFFERS
+        };
+        console.log(`✅ Base cargada desde Firestore (${Object.keys(db.users).length} usuarios).`);
+        return;
       }
+    } catch (e) {
+      console.error('Error leyendo Firestore:', e.message);
     }
+  }
 
-    db.users[cleanId] = newUser;
+  if (fs.existsSync(DB_FILE)) {
+    try {
+      db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    } catch (e) {}
+  }
+  ensureDemoUser();
+  saveDB();
+}
+
+let saveTimer = null;
+function saveDB() {
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
+  } catch (e) {}
+
+  if (firestoreDb) {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        await firestoreDb.collection('cashplay_system').doc('main_db').set(db);
+      } catch (e) {
+        console.error('Error guardando en Firestore:', e.message);
+      }
+    }, 500);
+  }
+}
+
+function getOrCreateUser(userId) {
+  const cleanId = String(userId || '').trim() || 'usr_' + Math.random().toString(36).substring(2, 9);
+  if (!db.users[cleanId]) {
+    const refCode = 'CP' + Math.random().toString(36).substring(2, 7).toUpperCase();
+    db.users[cleanId] = {
+      id: cleanId,
+      name: 'Usuario #' + cleanId.slice(-4).toUpperCase(),
+      coins: 500,
+      totalEarned: 500,
+      referralCode: refCode,
+      referredBy: null,
+      referralsCount: 0,
+      referralEarnings: 0,
+      lastDailyBonus: null,
+      createdAt: new Date().toISOString(),
+      history: [
+        {
+          id: 'tx_' + Date.now(),
+          type: 'bonus',
+          title: 'Bono de bienvenida',
+          amount: 500,
+          date: new Date().toISOString()
+        }
+      ]
+    };
     saveDB();
   }
   return db.users[cleanId];
 }
 
-// Acreditar comisión del 10% al padrino cuando un referido gana monedas
-function creditReferralCommission(user, earnedCoins) {
-  if (!user.referredBy || !db.users[user.referredBy]) return;
-  const sponsor = db.users[user.referredBy];
-  const commission = Math.floor(earnedCoins * 0.10);
-  if (commission > 0) {
-    sponsor.coins += commission;
-    sponsor.referralEarnings = (sponsor.referralEarnings || 0) + commission;
+function creditUserCoins(userId, amount, title, type = 'offerwall') {
+  const user = getOrCreateUser(userId);
+  const pts = Math.round(Number(amount) || 0);
+  if (pts <= 0) return user;
+
+  user.coins += pts;
+  user.totalEarned += pts;
+  user.history.unshift({
+    id: 'tx_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    type,
+    title,
+    amount: pts,
+    date: new Date().toISOString()
+  });
+
+  if (user.referredBy && db.users[user.referredBy]) {
+    const refCommission = Math.floor(pts * 0.10);
+    if (refCommission > 0) {
+      const sponsor = db.users[user.referredBy];
+      sponsor.coins += refCommission;
+      sponsor.totalEarned += refCommission;
+      sponsor.referralEarnings += refCommission;
+      sponsor.history.unshift({
+        id: 'tx_ref_' + Date.now(),
+        type: 'referral',
+        title: `Comisión 10% de ${user.name}`,
+        amount: refCommission,
+        date: new Date().toISOString()
+      });
+    }
   }
+
+  saveDB();
+  return user;
 }
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', usersCount: Object.keys(db.users).length, timestamp: new Date().toISOString() });
-});
-
 app.get('/api/dashboard', (req, res) => {
-  const userId = req.query.userId || 'user_demo';
-  const ref = req.query.ref || null;
-  const user = getOrCreateUser(userId, ref);
+  const user = getOrCreateUser(req.query.userId);
+  const userWithdrawals = db.withdrawals.filter(w => w.userId === user.id);
   res.json({
+    ok: true,
     user,
-    providers: OFFERWALL_PROVIDERS,
-    offers: FEATURED_OFFERS,
-    conversionRate: 1000 // 1000 monedas = $1.00 USD / R$ 5.00
+    offers: db.offers,
+    withdrawals: userWithdrawals,
+    conversionRate: 1000,
+    firestoreActive: Boolean(firestoreDb)
   });
 });
 
-// Canjear código de referido manualmente
-app.post('/api/referral/apply', (req, res) => {
-  const { userId = 'user_demo', code } = req.body;
+app.post('/api/daily-bonus', (req, res) => {
+  const { userId } = req.body;
   const user = getOrCreateUser(userId);
+  const now = Date.now();
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  if (user.lastDailyBonus && (now - new Date(user.lastDailyBonus).getTime()) < oneDayMs) {
+    const remainingMs = oneDayMs - (now - new Date(user.lastDailyBonus).getTime());
+    const hoursLeft = Math.ceil(remainingMs / (1000 * 60 * 60));
+    return res.status(400).json({
+      ok: false,
+      message: `Ya reclamaste tu bono hoy. Vuelve en ${hoursLeft}h.`
+    });
+  }
+
+  user.lastDailyBonus = new Date().toISOString();
+  creditUserCoins(user.id, 150, 'Bono Diario Patrocinado', 'bonus');
+  res.json({ ok: true, message: '¡+150 monedas acreditadas!', user });
+});
+
+app.post('/api/complete-offer', (req, res) => {
+  const { userId, offerId } = req.body;
+  const offer = db.offers.find(o => o.id === offerId);
+  if (!offer) return res.status(404).json({ ok: false, message: 'Oferta no encontrada' });
+
+  const user = getOrCreateUser(userId);
+  const alreadyDone = user.history.some(h => h.offerId === offerId);
+  if (alreadyDone) {
+    return res.status(400).json({ ok: false, message: 'Ya completaste esta oferta anteriormente.' });
+  }
+
+  user.coins += offer.reward;
+  user.totalEarned += offer.reward;
+  user.history.unshift({
+    id: 'tx_' + Date.now(),
+    offerId: offer.id,
+    type: 'offer',
+    title: offer.title,
+    amount: offer.reward,
+    date: new Date().toISOString()
+  });
+  saveDB();
+
+  res.json({ ok: true, message: `¡Completado! +${offer.reward} monedas`, user });
+});
+
+app.post('/api/apply-referral', (req, res) => {
+  const { userId, code } = req.body;
+  const user = getOrCreateUser(userId);
+  const cleanCode = String(code || '').trim().toUpperCase();
 
   if (user.referredBy) {
-    return res.status(400).json({ error: 'Ya aplicaste un código de invitación anteriormente' });
+    return res.status(400).json({ ok: false, message: 'Ya aplicaste un código de invitación.' });
   }
-  if (!code || !code.trim()) {
-    return res.status(400).json({ error: 'Ingresa un código válido' });
+  if (!cleanCode || cleanCode === user.referralCode) {
+    return res.status(400).json({ ok: false, message: 'Código inválido o propio.' });
   }
 
-  const sponsor = Object.values(db.users).find(
-    u => u.referralCode && u.referralCode.toUpperCase() === code.trim().toUpperCase() && u.id !== user.id
-  );
+  const sponsor = Object.values(db.users).find(u => u.referralCode === cleanCode);
   if (!sponsor) {
-    return res.status(404).json({ error: 'Código de invitación no encontrado' });
+    return res.status(404).json({ ok: false, message: 'No existe ningún usuario con ese código.' });
   }
 
   user.referredBy = sponsor.id;
-  user.coins += 250;
-  sponsor.coins += 300;
-  sponsor.referralsCount = (sponsor.referralsCount || 0) + 1;
-  sponsor.referralEarnings = (sponsor.referralEarnings || 0) + 300;
+  sponsor.referralsCount += 1;
+  creditUserCoins(user.id, 250, `Bono por código ${cleanCode}`, 'referral');
   saveDB();
 
-  res.json({ success: true, bonus: 250, totalCoins: user.coins });
+  res.json({ ok: true, message: '¡Código aplicado! Ganaste +250 monedas.', user });
 });
 
-// Reclamar recompensa de oferta o bono diario
-app.post('/api/offers/claim', (req, res) => {
-  const { userId = 'user_demo', offerId, coins } = req.body;
-  const user = getOrCreateUser(userId);
-  const reward = Number(coins) || 150;
-
-  if (offerId && offerId !== 'monetag_bonus' && user.completedOffers.includes(offerId)) {
-    return res.status(400).json({ error: 'Esta oferta ya fue reclamada' });
-  }
-
-  if (offerId && offerId !== 'monetag_bonus') {
-    user.completedOffers.push(offerId);
-  }
-  user.coins += reward;
-  creditReferralCommission(user, reward);
-  saveDB();
-
-  res.json({
-    success: true,
-    addedCoins: reward,
-    totalCoins: user.coins,
-    completedOffers: user.completedOffers
-  });
-});
-
-// Postback S2S compatible con TimeWall y Offerwalls (AdGem, Torox, ayeT)
-app.get(['/api/postback', '/api/postback/'], (req, res) => {
-  const userId = req.query.userid || req.query.user_id;
-  const amount = req.query.amount;
-  const txId = req.query.txid || req.query.tx_id;
-  const secret = req.query.secret;
-  const expectedSecret = process.env.POSTBACK_SECRET || 'CLAVE2026';
-
-  if (secret !== expectedSecret) {
-    return res.status(403).send('INVALID_SECRET');
-  }
-  if (!userId || !amount) {
-    return res.status(400).send('MISSING_PARAMS');
-  }
-
-  const user = getOrCreateUser(String(userId));
-  const txKey = txId ? `tx_${txId}` : null;
-  if (txKey && user.completedOffers.includes(txKey)) {
-    return res.status(200).send('ALREADY_CREDITED');
-  }
-
-  const earned = Math.max(1, Math.round(Number(amount)));
-  user.coins += earned;
-  if (txKey) user.completedOffers.push(txKey);
-  creditReferralCommission(user, earned);
-  saveDB();
-
-  console.log(`Postback acreditado: +${earned} monedas a ${userId}`);
-  res.status(200).send('OK');
-});
-
-// Solicitar retiro de dinero (PIX, PayPal, Binance, Recarga)
 app.post('/api/withdraw', (req, res) => {
-  const { userId = 'user_demo', method, account, coins } = req.body;
+  const { userId, method, account, coins } = req.body;
   const user = getOrCreateUser(userId);
-  const amountCoins = Number(coins);
+  const amountCoins = Math.round(Number(coins) || 0);
 
-  if (!method || !account || !account.trim()) {
-    return res.status(400).json({ error: 'Completa el método y tu cuenta/llave de pago' });
-  }
-  if (isNaN(amountCoins) || amountCoins < 5000) {
-    return res.status(400).json({ error: 'El mínimo de retiro es 5,000 monedas ($5.00 / R$ 25)' });
+  if (amountCoins < 2000) {
+    return res.status(400).json({ ok: false, message: 'El retiro mínimo es de 2,000 monedas ($2.00 USD).' });
   }
   if (user.coins < amountCoins) {
-    return res.status(400).json({ error: 'Saldo insuficiente' });
+    return res.status(400).json({ ok: false, message: 'Saldo insuficiente.' });
+  }
+  if (!account || String(account).trim().length < 5) {
+    return res.status(400).json({ ok: false, message: 'Ingresa una cuenta, correo PayPal o llave PIX válida.' });
   }
 
   user.coins -= amountCoins;
+  const usdValue = (amountCoins / 1000).toFixed(2);
   const withdrawal = {
-    id: 'W-' + Date.now(),
-    method,
-    account: account.trim(),
+    id: 'wd_' + Date.now(),
+    userId: user.id,
+    method: String(method || 'PayPal'),
+    account: String(account).trim(),
     coins: amountCoins,
-    usdValue: (amountCoins / 1000).toFixed(2),
+    usdValue,
     status: 'Pendiente',
     date: new Date().toISOString()
   };
-  user.withdrawals.unshift(withdrawal);
+
+  db.withdrawals.unshift(withdrawal);
+  user.history.unshift({
+    id: 'tx_' + Date.now(),
+    type: 'withdraw',
+    title: `Retiro ${withdrawal.method} ($${usdValue})`,
+    amount: -amountCoins,
+    date: new Date().toISOString()
+  });
   saveDB();
 
   res.json({
-    success: true,
-    coins: user.coins,
-    withdrawal,
-    withdrawals: user.withdrawals
+    ok: true,
+    message: `Solicitud de retiro por $${usdValue} USD enviada. Procesamiento en 24-48h.`,
+    user,
+    withdrawal
   });
 });
 
-// Panel de administración (ver todos los retiros y usuarios)
+app.all('/api/postback', (req, res) => {
+  const params = { ...req.query, ...req.body };
+  const secret = params.secret || params.password || params.key;
+  const userId = params.user_id || params.userid || params.subid || params.uid;
+  const reward = params.reward || params.amount || params.currency || params.payout_coins;
+  const txId = params.tx_id || params.txid || params.trans_id || params.transaction_id || ('pb_' + Date.now());
+  const network = params.network || params.offerwall || (params.revenue !== undefined ? 'TimeWall' : 'Offerwall S2S');
+
+  if (secret !== POSTBACK_SECRET) {
+    return res.status(403).send('ERROR_INVALID_SECRET');
+  }
+  if (!userId || !reward) {
+    return res.status(400).send('ERROR_MISSING_PARAMS');
+  }
+
+  const duplicate = db.postbacks.some(p => p.txId === String(txId));
+  if (duplicate) {
+    return res.status(200).send('ALREADY_CREDITED');
+  }
+
+  db.postbacks.unshift({
+    txId: String(txId),
+    userId: String(userId),
+    reward: Number(reward),
+    network: String(network),
+    date: new Date().toISOString()
+  });
+
+  creditUserCoins(userId, reward, `Tarea completada (${network})`, 'offerwall');
+  res.status(200).send('OK');
+});
+
 app.get('/api/admin/overview', (req, res) => {
-  const secret = req.query.secret;
-  const expectedSecret = process.env.POSTBACK_SECRET || 'CLAVE2026';
-  if (secret !== expectedSecret) {
+  if (req.query.secret !== POSTBACK_SECRET) {
     return res.status(403).json({ error: 'Clave secreta inválida' });
   }
-  const allUsers = Object.values(db.users);
-  const allWithdrawals = allUsers.flatMap(u =>
-    (u.withdrawals || []).map(w => ({ ...w, userId: u.id }))
-  );
   res.json({
-    totalUsers: allUsers.length,
-    withdrawals: allWithdrawals
+    firestoreActive: Boolean(firestoreDb),
+    totalUsers: Object.keys(db.users).length,
+    withdrawals: db.withdrawals
   });
 });
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+initDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`CashPlay Offerwall v2.1 ejecutándose en http://localhost:${PORT}`);
+  });
 });
-
-app.listen(PORT, () => {
-  console.log(`CashPlay Offerwall v2 ejecutándose en http://localhost:${PORT}`);
-});
-    
+      
