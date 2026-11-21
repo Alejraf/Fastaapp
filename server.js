@@ -11,7 +11,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Inicialización de Firebase Firestore
 let db = null;
 let firestoreActive = false;
 
@@ -33,7 +32,6 @@ try {
   console.error('⚠️ Error inicializando Firebase:', error.message);
 }
 
-// Estado base en memoria + respaldo en Firestore
 let memoryState = {
   users: {
     usr_demo: {
@@ -165,7 +163,6 @@ function getClientIp(req) {
   return req.socket?.remoteAddress || '';
 }
 
-// Endpoint principal del Dashboard
 app.get('/api/dashboard', async (req, res) => {
   const state = await loadState();
   const user = getOrCreateUser(state, req.query.userId, getClientIp(req));
@@ -182,7 +179,6 @@ app.get('/api/dashboard', async (req, res) => {
   });
 });
 
-// Bono diario reducido (+20 monedas tras ver anuncio Monetag)
 app.post('/api/daily-bonus', async (req, res) => {
   const DAILY_REWARD = 20;
   const state = await loadState();
@@ -209,7 +205,6 @@ app.post('/api/daily-bonus', async (req, res) => {
   res.json({ ok: true, coins: user.coins, message: `+${DAILY_REWARD} monedas acreditadas` });
 });
 
-// Solicitud de retiro con registro de IP para auditoría antifraude
 app.post('/api/withdraw', async (req, res) => {
   const { userId, method, account, amountCoins } = req.body;
   const coins = Number(amountCoins);
@@ -251,7 +246,6 @@ app.post('/api/withdraw', async (req, res) => {
   res.json({ ok: true, coins: user.coins, withdrawal });
 });
 
-// Postback S2S para Offerwalls (TimeWall, ayeT-Studios, Torox, etc.)
 app.get('/api/postback', async (req, res) => {
   const secret = req.query.secret || req.query.key;
   if (secret !== POSTBACK_SECRET) {
@@ -288,7 +282,6 @@ app.get('/api/postback', async (req, res) => {
   res.status(200).send('OK');
 });
 
-// Endpoint JSON de administración (protegido)
 app.get('/api/admin/overview', async (req, res) => {
   if (req.query.secret !== POSTBACK_SECRET) {
     return res.status(403).json({ ok: false, message: 'Clave incorrecta' });
@@ -303,7 +296,6 @@ app.get('/api/admin/overview', async (req, res) => {
   });
 });
 
-// Acción para aprobar o rechazar retiro desde el panel
 app.post('/api/admin/withdraw-action', async (req, res) => {
   const { secret, withdrawalId, action } = req.body;
   if (secret !== POSTBACK_SECRET) {
@@ -338,7 +330,6 @@ app.post('/api/admin/withdraw-action', async (req, res) => {
   res.json({ ok: true });
 });
 
-// Panel visual móvil para gestionar retiros con un toque
 app.get('/admin', async (req, res) => {
   if (req.query.secret !== POSTBACK_SECRET) {
     return res.status(403).send('<h2 style="font-family:sans-serif;text-align:center;margin-top:40px">Acceso denegado. Agrega ?secret=TU_CLAVE en la URL</h2>');
@@ -397,11 +388,10 @@ app.get('/admin', async (req, res) => {
   `);
 });
 
-// Fallback para servir siempre index.html en /, /?v=2 o cualquier ruta SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`CashPlay Offerwall v2.3 ejecutándose en http://localhost:${PORT}`);
+  console.log(`CashPlay Offerwall v2.4 ejecutándose en http://localhost:${PORT}`);
 });

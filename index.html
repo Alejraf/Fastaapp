@@ -233,7 +233,6 @@
 
     const USER_ID = getOrCreateUserId();
     const TIMEWALL_OID = '1be50b5db408a909';
-    // Direct Link oficial de Monetag (Zone 12319298)
     const MONETAG_DIRECT_LINK = 'https://uplcm.com/4/12319298';
     const DAILY_BONUS_AMOUNT = 20;
 
@@ -288,7 +287,7 @@
         toastWdErr: 'Erro ao solicitar saque',
         toastConnErr: 'Erro ao conectar com o servidor',
         toastAdBlocked: 'Permita pop-ups ou desative o AdBlock para abrir o anúncio patrocinado.',
-        toastAdViewing: 'Anúncio aberto! Aguarde 6 segundos para liberar suas +20 moedas...',
+        toastAdViewing: 'Anúncio aberto! Volte aqui após 6s para receber suas +20 moedas...',
         secTitle: 'Acesso Bloqueado por Segurança',
         secEmu: 'Emuladores, navegadores automatizados ou dispositivos modificados/root não são permitidos no CashPlay.',
         secVpn: 'VPN ou Proxy detectado (inconsistência de fuso horário/IP). Desative sua VPN para continuar.',
@@ -348,7 +347,7 @@
         toastWdErr: 'Error al solicitar retiro',
         toastConnErr: 'Error al conectar con el servidor',
         toastAdBlocked: 'Permite ventanas emergentes o desactiva AdBlock para abrir el anuncio patrocinado.',
-        toastAdViewing: '¡Anuncio abierto! Espera 6 segundos para liberar tus +20 monedas...',
+        toastAdViewing: '¡Anuncio abierto! Regresa aquí tras 6s para liberar tus +20 monedas...',
         secTitle: 'Acceso Bloqueado por Seguridad',
         secEmu: 'No se permiten emuladores, navegadores automatizados ni dispositivos modificados/rooteados en CashPlay.',
         secVpn: 'VPN o Proxy detectado (inconsistencia de zona horaria/IP). Desactiva tu VPN para continuar.',
@@ -363,7 +362,6 @@
       }
     };
 
-    // Escudo Antifraude Visible (Emuladores, Root/WebDriver y VPN/Proxy)
     async function runAntiFraudShield() {
       const t = I18N[currentLang];
       const lockEl = document.getElementById('securityLock');
@@ -378,7 +376,6 @@
         lockEl.style.display = 'flex';
       };
 
-      // 1. Detección de Emuladores / Root / Automatización
       const ua = (navigator.userAgent || '').toLowerCase();
       const isEmulatorOrRoot =
         navigator.webdriver === true ||
@@ -390,7 +387,6 @@
         return false;
       }
 
-      // 2. Detección de VPN / Proxy por discrepancia de Zona Horaria vs IP
       try {
         const res = await fetch('https://ipapi.co/json/');
         const ipData = await res.json();
@@ -403,9 +399,7 @@
             return false;
           }
         }
-      } catch (e) {
-        // Si la API externa falla por red, no bloquear falsamente
-      }
+      } catch (e) {}
 
       return true;
     }
@@ -452,7 +446,7 @@
       const el = document.getElementById('toast');
       el.textContent = msg;
       el.style.display = 'block';
-      setTimeout(() => { el.style.display = 'none'; }, 3500);
+      setTimeout(() => { el.style.display = 'none'; }, 4000);
     }
 
     function switchTab(tab, btn) {
@@ -465,7 +459,7 @@
     async function loadDashboard() {
       const t = I18N[currentLang];
       try {
-        const res = await fetch('/api/dashboard?userId=' + encodeURIComponent(USER_ID));
+        const res = await fetch('/api/dashboard?userId=' + encodeURIComponent(USER_ID) + '&t=' + Date.now());
         const data = await res.json();
         if (!data.ok) throw new Error('Respuesta inválida');
 
@@ -491,13 +485,51 @@
       }
     }
 
-    // Bono diario reducido (+20 monedas) vinculado al Direct Link de Monetag
+    let pendingAdStart = null;
+    let pendingAdInterval = null;
+
+    async function finalizeDailyBonus() {
+      const btn = document.getElementById('dailyBonusBtn');
+      if (!pendingAdStart) return;
+      pendingAdStart = null;
+      if (pendingAdInterval) {
+        clearInterval(pendingAdInterval);
+        pendingAdInterval = null;
+      }
+
+      try {
+        const res = await fetch('/api/daily-bonus', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: USER_ID, amount: DAILY_BONUS_AMOUNT })
+        });
+        const data = await res.json();
+        showToast(data.message || ('+' + DAILY_BONUS_AMOUNT + ' moedas!'));
+        if (data.ok) await loadDashboard();
+      } catch (err) {
+        showToast(I18N[currentLang].toastConnErr);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = I18N[currentLang].dailyBtn;
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && pendingAdStart) {
+        const elapsed = Date.now() - pendingAdStart;
+        if (elapsed >= 5000) {
+          finalizeDailyBonus();
+        }
+      }
+    });
+
     async function claimDailyBonus() {
       const t = I18N[currentLang];
       const btn = document.getElementById('dailyBonusBtn');
       if (btn && btn.disabled) return;
 
-      // 1. Abrir el Direct Link patrocinado de Monetag en nueva pestaña
       const adWin = window.open(MONETAG_DIRECT_LINK, '_blank', 'noopener');
       if (!adWin) {
         showToast(t.toastAdBlocked);
@@ -506,34 +538,21 @@
 
       if (btn) btn.disabled = true;
       showToast(t.toastAdViewing);
+      pendingAdStart = Date.now();
 
-      // 2. Cuenta regresiva de 6 segundos para asegurar visualización real del anuncio
-      let secondsLeft = 6;
-      btn.textContent = t.dailyWait.replace('{s}', secondsLeft);
-
-      const timer = setInterval(async () => {
-        secondsLeft--;
-        if (secondsLeft > 0) {
-          btn.textContent = t.dailyWait.replace('{s}', secondsLeft);
-        } else {
-          clearInterval(timer);
-          try {
-            const res = await fetch('/api/daily-bonus', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId: USER_ID, amount: DAILY_BONUS_AMOUNT })
-            });
-            const data = await res.json();
-            showToast(data.message || ('+' + DAILY_BONUS_AMOUNT + ' moedas!'));
-            if (data.ok) loadDashboard();
-          } catch (err) {
-            showToast(t.toastConnErr);
-          } finally {
-            btn.disabled = false;
-            btn.textContent = I18N[currentLang].dailyBtn;
-          }
+      pendingAdInterval = setInterval(() => {
+        if (!pendingAdStart) {
+          clearInterval(pendingAdInterval);
+          return;
         }
-      }, 1000);
+        const elapsedSec = Math.floor((Date.now() - pendingAdStart) / 1000);
+        const left = Math.max(0, 6 - elapsedSec);
+        if (left > 0) {
+          btn.textContent = I18N[currentLang].dailyWait.replace('{s}', left);
+        } else {
+          finalizeDailyBonus();
+        }
+      }, 500);
     }
 
     async function requestWithdraw() {
