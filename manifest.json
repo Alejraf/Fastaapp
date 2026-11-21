@@ -1,7 +1,7 @@
 {
   "name": "CashPlay Offerwall Rewards",
   "short_name": "CashPlay",
-  "description": "Instala juegos y apps, invita amigos y gana dinero real",
+  "description": "Instala juegos y apps, invita amigos y cobra dinero real",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1120",
@@ -9,10 +9,22 @@
   "orientation": "portrait",
   "icons": [
     {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
