@@ -152,19 +152,27 @@ function openOfferwall(provider) {
     return;
   }
 
+  // Abrir TimeWall con tu Placement ID aprobado/asignado y el ID del usuario
+  if (provider.id === 'timewall' || (provider.name && provider.name.toLowerCase().includes('timewall'))) {
+    const timewallUrl = `https://timewall.io/users/login?oid=1be50b5db408a909&uid=${encodeURIComponent(currentUserId)}`;
+    window.open(timewallUrl, '_blank', 'noopener');
+    return;
+  }
+
   const modal = document.getElementById('wallModal');
+  if (!modal) return;
   document.getElementById('wallModalTitle').textContent = provider.name;
   const body = document.getElementById('wallModalBody');
 
   if (provider.iframeUrl) {
     const finalUrl = provider.iframeUrl.replace('{user_id}', encodeURIComponent(currentUserId));
-    body.innerHTML = `<iframe class="wall-iframe" src="${finalUrl}" allow="autoplay; clipboard-write"></iframe>`;
+    body.innerHTML = `<iframe class="wall-iframe" src="${finalUrl}" allow="clipboard-write"></iframe>`;
   } else {
     body.innerHTML = `
       <div class="card-box">
         <h3>Muro de Ofertas ${provider.name}</h3>
-        <p class="muted">Configura <code>${provider.id.toUpperCase()}_WALL_URL</code> en Render para cargar automáticamente todo su catálogo de juegos y apps.</p>
-        <button id="simulateWallBtn" class="btn-primary">Simular instalación completada (+600 monedas)</button>
+        <p class="muted">Configura <code>${provider.id.toUpperCase()}_WALL_LINK</code> en Render.</p>
+        <button id="simulateWallBtn" class="btn-primary">Simular instalación (+600 monedas)</button>
       </div>
     `;
     document.getElementById('simulateWallBtn').addEventListener('click', () => {
@@ -174,6 +182,7 @@ function openOfferwall(provider) {
   }
   modal.classList.remove('hidden');
 }
+
 
 document.getElementById('closeWallModal').addEventListener('click', () => {
   document.getElementById('wallModal').classList.add('hidden');
