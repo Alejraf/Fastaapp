@@ -248,8 +248,14 @@
     }
 
     function openOfferwall(name) {
-      showToast('Abriendo muro ' + name + ' para ID: ' + USER_ID);
+  if (name && name.toLowerCase().includes('timewall')) {
+    const url = 'https://timewall.io/users/login?oid=1be50b5db408a909&uid=' + encodeURIComponent(USER_ID);
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  showToast('Abriendo muro ' + name + ' para ID: ' + USER_ID);
     }
+    
 
     function copyRefLink() {
       const input = document.getElementById('refLink');
