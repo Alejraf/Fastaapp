@@ -6,6 +6,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CashPlay - Ganhe Dinheiro Real</title>
+
+  <!-- MONETAG REWARDED SDK: Reemplaza TU_ZONE_ID por el ID real de tu zona Rewarded en Monetag -->
+  <script src="//whephiwums.com/sdk.js" data-zone="TU_ZONE_ID" data-sdk="show_TU_ZONE_ID"></script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #0b1120; color: #f8fafc; padding-bottom: 80px; }
@@ -43,6 +47,7 @@
     .offer-card .coins { color: #34d399; font-weight: 700; font-size: 12px; margin-bottom: 4px; }
     .offer-card small { color: #94a3b8; font-size: 11px; display: block; line-height: 1.3; }
     .btn { background: #2563eb; color: #fff; border: none; padding: 12px 16px; border-radius: 10px; font-weight: 700; width: 100%; cursor: pointer; font-size: 14px; margin-top: 10px; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     input, select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #334155; background: #0f172a; color: #fff; margin-top: 8px; font-size: 14px; }
     .tab-view { display: none; }
     .tab-view.active { display: block; }
@@ -50,9 +55,42 @@
     nav button { background: none; border: none; color: #94a3b8; font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
     nav button.active { color: #38bdf8; font-weight: 700; }
     .toast { position: fixed; bottom: 75px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #334155; color: #f8fafc; padding: 10px 18px; border-radius: 999px; font-size: 13px; display: none; z-index: 50; text-align: center; max-width: 90%; }
+
+    /* Escudo Antifraude Visible */
+    .security-lock { display: none; position: fixed; inset: 0; background: #0b1120; color: #f8fafc; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+    .security-lock .shield { font-size: 52px; margin-bottom: 14px; }
+    .security-lock h2 { color: #f87171; font-size: 20px; margin-bottom: 10px; }
+    .security-lock p { color: #cbd5e1; font-size: 14px; max-width: 360px; line-height: 1.5; margin-bottom: 16px; }
+    .security-badge { background: rgba(248, 113, 113, 0.15); border: 1px solid rgba(248, 113, 113, 0.4); color: #fca5a5; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+
+    /* Aviso de Verificación y Enlaces Legales */
+    .verify-box { background: rgba(250, 204, 21, 0.08); border: 1px solid rgba(250, 204, 21, 0.35); border-radius: 12px; padding: 12px; margin-top: 14px; font-size: 12px; color: #fde68a; line-height: 1.45; }
+    .legal-links { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 16px; padding-top: 12px; border-top: 1px solid #1e293b; font-size: 12px; }
+    .legal-links a { color: #38bdf8; text-decoration: none; font-weight: 600; cursor: pointer; }
+    .legal-modal { display: none; position: fixed; inset: 0; background: rgba(2, 6, 23, 0.88); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+    .legal-content { background: #0f172a; border: 1px solid #334155; border-radius: 16px; max-width: 520px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 18px; }
+    .legal-content h3 { font-size: 16px; margin-bottom: 10px; color: #38bdf8; }
+    .legal-content p { font-size: 13px; color: #cbd5e1; line-height: 1.55; margin-bottom: 10px; }
   </style>
 </head>
 <body>
+  <!-- Pantalla de Bloqueo Antifraude -->
+  <div class="security-lock" id="securityLock">
+    <div class="shield">🛡️</div>
+    <h2 id="secLockTitle">Acesso Bloqueado por Segurança</h2>
+    <p id="secLockDesc">Detectamos o uso de VPN, Proxy, Emulador ou dispositivo modificado/root. Desative-o para continuar usando o CashPlay.</p>
+    <span class="security-badge" id="secLockCode">ANTI-FRAUD SHIELD ACTIVE</span>
+  </div>
+
+  <!-- Modal Términos y Privacidad -->
+  <div class="legal-modal" id="legalModal" onclick="if(event.target===this) closeLegal()">
+    <div class="legal-content">
+      <h3 id="legalModalTitle">Termos de Uso</h3>
+      <div id="legalModalBody"></div>
+      <button class="btn" onclick="closeLegal()" data-i18n="closeBtn">Fechar</button>
+    </div>
+  </div>
+
   <header>
     <div class="brand">
       <div class="logo">💎</div>
@@ -79,7 +117,7 @@
         <div class="badge-active" data-i18n="heroBadge">🔥 RECOMPENSAS ATIVAS</div>
         <h2 data-i18n="heroTitle">Instale jogos e apps, cumpra missões e saque dinheiro real</h2>
         <p data-i18n="heroSub">1.000 moedas = $1.00 USD / R$ 5,00</p>
-        <button class="btn" onclick="claimDailyBonus()" data-i18n="dailyBtn">🎁 Resgatar Bônus Diário (+100 moedas)</button>
+        <button class="btn" id="dailyBonusBtn" onclick="claimDailyBonus()" data-i18n="dailyBtn">🎬 Bônus Diário (+20 moedas • Ver Anúncio)</button>
       </div>
 
       <div class="section-header">
@@ -141,6 +179,16 @@
         <input type="text" id="withdrawAccount" placeholder="Sua chave PIX, e-mail PayPal ou ID Binance" />
         <input type="number" id="withdrawAmount" value="2000" min="2000" step="500" />
         <button class="btn" onclick="requestWithdraw()" data-i18n="wdBtn">Solicitar Saque</button>
+
+        <div class="verify-box">
+          <strong>🔒 <span data-i18n="verifyTitle">Verificação de Identidade e Antifraude:</span></strong>
+          <span data-i18n="verifyDesc">Todos os saques (PIX, PayPal ou USDT) passam por verificação manual de identidade e auditoria de tráfego em até 24-48h antes do pagamento. Contas com VPN, emuladores ou múltiplos cadastros serão bloqueadas.</span>
+        </div>
+
+        <div class="legal-links">
+          <a onclick="openLegal('terms')" data-i18n="termsLink">Termos de Uso</a>
+          <a onclick="openLegal('privacy')" data-i18n="privacyLink">Política de Privacidade</a>
+        </div>
       </div>
     </div>
 
@@ -149,6 +197,16 @@
         <div class="badge-active" data-i18n="profBadge">👤 MINHA CONTA</div>
         <h2 id="profileUserId">ID: ...</h2>
         <p id="cloudStatus">Sincronizando...</p>
+
+        <div class="verify-box">
+          <strong>🛡️ <span data-i18n="profVerifyTitle">Proteção da Conta:</span></strong>
+          <span data-i18n="profVerifyDesc">Apenas 1 conta por dispositivo e IP residencial real. A verificação de titularidade PIX/PayPal é obrigatória no primeiro saque.</span>
+        </div>
+
+        <div class="legal-links">
+          <a onclick="openLegal('terms')" data-i18n="termsLink">Termos de Uso</a>
+          <a onclick="openLegal('privacy')" data-i18n="privacyLink">Política de Privacidade</a>
+        </div>
       </div>
       <div class="section-header">
         <h3 data-i18n="histTitle">Histórico recente</h3>
@@ -178,6 +236,9 @@
 
     const USER_ID = getOrCreateUserId();
     const TIMEWALL_OID = '1be50b5db408a909';
+    // Reemplaza TU_ZONE_ID por el ID numérico de tu zona Rewarded en Monetag
+    const MONETAG_ZONE_ID = 'TU_ZONE_ID';
+    const DAILY_BONUS_AMOUNT = 20;
 
     let currentLang = localStorage.getItem('cashplay_lang') ||
       ((navigator.language || '').toLowerCase().startsWith('pt') ? 'pt' : 'es');
@@ -188,7 +249,7 @@
         heroBadge: '🔥 RECOMPENSAS ATIVAS',
         heroTitle: 'Instale jogos e apps, cumpra missões e saque dinheiro real',
         heroSub: '1.000 moedas = $1.00 USD / R$ 5,00',
-        dailyBtn: '🎁 Resgatar Bônus Diário (+100 moedas)',
+        dailyBtn: '🎬 Bônus Diário (+20 moedas • Ver Anúncio)',
         wallsTitle: 'Murais de Ofertas (Offerwalls)',
         tapOpen: 'Toque para abrir',
         twReward: '+1.200 moedas',
@@ -207,6 +268,13 @@
         wdSub: 'Saque mínimo: 2.000 moedas ($2.00 USD / R$ 10,00)',
         wdPlaceholder: 'Sua chave PIX, e-mail PayPal ou ID Binance',
         wdBtn: 'Solicitar Saque',
+        verifyTitle: 'Verificação de Identidade e Antifraude:',
+        verifyDesc: 'Todos os saques (PIX, PayPal ou USDT) passam por verificação manual de identidade e auditoria de tráfego em até 24-48h antes do pagamento. Contas com VPN, emuladores ou múltiplos cadastros serão bloqueadas.',
+        profVerifyTitle: 'Proteção da Conta:',
+        profVerifyDesc: 'Apenas 1 conta por dispositivo e IP residencial real. A verificação de titularidade PIX/PayPal é obrigatória no primeiro saque.',
+        termsLink: 'Termos de Uso',
+        privacyLink: 'Política de Privacidade',
+        closeBtn: 'Fechar',
         profBadge: '👤 MINHA CONTA',
         histTitle: 'Histórico recente',
         navEarn: 'Ganhar',
@@ -218,9 +286,16 @@
         toastOpeningTw: 'Abrindo mural oficial TimeWall...',
         toastToroxSoon: 'Torox em ativação final. Use o TimeWall abaixo para ganhar agora!',
         toastRefCopied: 'Link de convite copiado!',
-        toastWdSent: 'Solicitação de saque enviada com sucesso!',
+        toastWdSent: 'Solicitação de saque enviada para verificação!',
         toastWdErr: 'Erro ao solicitar saque',
         toastConnErr: 'Erro ao conectar com o servidor',
+        toastAdRequired: 'Assista ao anúncio completo para liberar o bônus diário de +20 moedas.',
+        toastAdUnavailable: 'Anúncio indisponível. Desative bloqueadores de anúncios (AdBlock) e tente novamente.',
+        secTitle: 'Acesso Bloqueado por Segurança',
+        secEmu: 'Emuladores, navegadores automatizados ou dispositivos modificados/root não são permitidos no CashPlay.',
+        secVpn: 'VPN ou Proxy detectado (inconsistência de fuso horário/IP). Desative sua VPN para continuar.',
+        termsHtml: '<p><strong>1. Elegibilidade:</strong> O CashPlay permite apenas uma conta por pessoa, dispositivo e conexão residencial.</p><p><strong>2. Atividades Proibidas:</strong> É estritamente proibido o uso de VPN, Proxy, emuladores (BlueStacks, Nox, etc.), dispositivos com root ou scripts automáticos. Qualquer tentativa resulta em bloqueio imediato e perda do saldo.</p><p><strong>3. Saques e Verificação:</strong> Todos os pedidos de saque via PIX, PayPal ou USDT passam por revisão antifraude e verificação de titularidade em até 24-48 horas úteis.</p>',
+        privacyHtml: '<p><strong>1. Dados Coletados:</strong> Coletamos apenas seu identificador anônimo de usuário, endereço IP, fuso horário e dados de dispositivo para prevenção contra fraudes e validação de ofertas concluídas junto aos parceiros (TimeWall, Monetag, etc.).</p><p><strong>2. Dados de Pagamento:</strong> Sua chave PIX, e-mail PayPal ou ID Binance é utilizada exclusivamente para processar o pagamento solicitado e validar a titularidade da conta.</p><p><strong>3. Compartilhamento:</strong> Nunca vendemos seus dados pessoais a terceiros.</p>',
         categories: [
           { icon: '🎮', title: 'Jogos e Apps', badge: 'Abrir no TimeWall', sub: 'Instale jogos verificados e receba moedas automáticas' },
           { icon: '📋', title: 'Pesquisas Pagas', badge: 'Abrir no TimeWall', sub: 'Responda pesquisas rápidas e ganhe na hora' },
@@ -233,7 +308,7 @@
         heroBadge: '🔥 RECOMPENSAS ACTIVAS',
         heroTitle: 'Instala juegos y apps, cumple misiones y cobra dinero real',
         heroSub: '1,000 monedas = $1.00 USD / R$ 5,00',
-        dailyBtn: '🎁 Reclamar Bono Diario (+100 monedas)',
+        dailyBtn: '🎬 Bono Diario (+20 monedas • Ver Anuncio)',
         wallsTitle: 'Muros de Ofertas (Offerwalls)',
         tapOpen: 'Toca para abrir',
         twReward: '+1,200 monedas',
@@ -252,6 +327,13 @@
         wdSub: 'Mínimo de retiro: 2,000 monedas ($2.00 USD / R$ 10,00)',
         wdPlaceholder: 'Tu llave PIX, correo PayPal o ID Binance',
         wdBtn: 'Solicitar Retiro',
+        verifyTitle: 'Verificación de Identidad y Antifraude:',
+        verifyDesc: 'Todos los retiros (PIX, PayPal o USDT) pasan por verificación manual de identidad y auditoría de tráfico en 24-48h antes del pago. Cuentas con VPN, emuladores o múltiples registros serán bloqueadas.',
+        profVerifyTitle: 'Protección de la Cuenta:',
+        profVerifyDesc: 'Solo 1 cuenta por dispositivo e IP residencial real. La verificación de titularidad PIX/PayPal es obligatoria en el primer retiro.',
+        termsLink: 'Términos de Uso',
+        privacyLink: 'Política de Privacidad',
+        closeBtn: 'Cerrar',
         profBadge: '👤 MI CUENTA',
         histTitle: 'Historial reciente',
         navEarn: 'Ganar',
@@ -263,9 +345,16 @@
         toastOpeningTw: 'Abriendo muro oficial TimeWall...',
         toastToroxSoon: 'Torox en activación final. ¡Usa TimeWall abajo para ganar ahora!',
         toastRefCopied: 'Enlace de invitación copiado',
-        toastWdSent: 'Solicitud de retiro enviada',
+        toastWdSent: 'Solicitud de retiro enviada a verificación',
         toastWdErr: 'Error al solicitar retiro',
         toastConnErr: 'Error al conectar con el servidor',
+        toastAdRequired: 'Mira el anuncio completo para reclamar el bono diario de +20 monedas.',
+        toastAdUnavailable: 'Anuncio no disponible. Desactiva bloqueadores de anuncios (AdBlock) e intenta de nuevo.',
+        secTitle: 'Acceso Bloqueado por Seguridad',
+        secEmu: 'No se permiten emuladores, navegadores automatizados ni dispositivos modificados/rooteados en CashPlay.',
+        secVpn: 'VPN o Proxy detectado (inconsistencia de zona horaria/IP). Desactiva tu VPN para continuar.',
+        termsHtml: '<p><strong>1. Elegibilidad:</strong> CashPlay permite únicamente una cuenta por persona, dispositivo y conexión residencial.</p><p><strong>2. Actividades Prohibidas:</strong> Está estrictamente prohibido el uso de VPN, Proxy, emuladores (BlueStacks, Nox, etc.), dispositivos rooteados o scripts automáticos. Cualquier intento conlleva el bloqueo inmediato y la pérdida del saldo.</p><p><strong>3. Retiros y Verificación:</strong> Todas las solicitudes de retiro vía PIX, PayPal o USDT pasan por revisión antifraude y verificación de titularidad en un plazo de 24-48 horas hábiles.</p>',
+        privacyHtml: '<p><strong>1. Datos Recopilados:</strong> Recopilamos únicamente tu identificador anónimo de usuario, dirección IP, zona horaria y datos del dispositivo para prevención de fraude y validación de ofertas completadas con nuestros socios (TimeWall, Monetag, etc.).</p><p><strong>2. Datos de Pago:</strong> Tu llave PIX, correo PayPal o ID Binance se utiliza exclusivamente para procesar el pago solicitado y validar la titularidad de la cuenta.</p><p><strong>3. Privacidad:</strong> Nunca vendemos tus datos personales a terceros.</p>',
         categories: [
           { icon: '🎮', title: 'Juegos y Apps', badge: 'Abrir en TimeWall', sub: 'Instala juegos verificados y recibe monedas automáticas' },
           { icon: '📋', title: 'Encuestas Pagas', badge: 'Abrir en TimeWall', sub: 'Responde encuestas rápidas y gana al instante' },
@@ -274,6 +363,64 @@
         ]
       }
     };
+
+    // Escudo Antifraude Visible (Emuladores, Root/WebDriver y VPN/Proxy)
+    async function runAntiFraudShield() {
+      const t = I18N[currentLang];
+      const lockEl = document.getElementById('securityLock');
+      const titleEl = document.getElementById('secLockTitle');
+      const descEl = document.getElementById('secLockDesc');
+      const codeEl = document.getElementById('secLockCode');
+
+      const triggerLock = (reasonText, codeText) => {
+        titleEl.textContent = t.secTitle;
+        descEl.textContent = reasonText;
+        codeEl.textContent = codeText;
+        lockEl.style.display = 'flex';
+      };
+
+      // 1. Detección de Emuladores / Root / Automatización
+      const ua = (navigator.userAgent || '').toLowerCase();
+      const isEmulatorOrRoot =
+        navigator.webdriver === true ||
+        /bluestacks|nox|memu|ldplayer|genymotion|android sdk built for x86|andyos|droid4x/.test(ua) ||
+        (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 1);
+
+      if (isEmulatorOrRoot) {
+        triggerLock(t.secEmu, 'BLOCKED: EMULATOR / MODIFIED DEVICE');
+        return false;
+      }
+
+      // 2. Detección de VPN / Proxy por discrepancia de Zona Horaria vs IP
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        const ipData = await res.json();
+        const deviceTZ = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        if (ipData && ipData.timezone && deviceTZ) {
+          const ipRegion = ipData.timezone.split('/')[0];
+          const devRegion = deviceTZ.split('/')[0];
+          if (ipRegion && devRegion && ipRegion !== devRegion) {
+            triggerLock(t.secVpn, 'BLOCKED: VPN / PROXY DETECTED');
+            return false;
+          }
+        }
+      } catch (e) {
+        // Si la API externa falla por red, no bloquear falsamente
+      }
+
+      return true;
+    }
+
+    function openLegal(type) {
+      const t = I18N[currentLang];
+      document.getElementById('legalModalTitle').textContent = type === 'terms' ? t.termsLink : t.privacyLink;
+      document.getElementById('legalModalBody').innerHTML = type === 'terms' ? t.termsHtml : t.privacyHtml;
+      document.getElementById('legalModal').style.display = 'flex';
+    }
+
+    function closeLegal() {
+      document.getElementById('legalModal').style.display = 'none';
+    }
 
     function applyLanguage() {
       const t = I18N[currentLang];
@@ -345,15 +492,37 @@
       }
     }
 
+    // Bono diario reducido (+20 monedas) vinculado al anuncio recompensado de Monetag
     async function claimDailyBonus() {
-      const res = await fetch('/api/daily-bonus', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: USER_ID })
-      });
-      const data = await res.json();
-      showToast(data.message || 'OK');
-      if (data.ok) loadDashboard();
+      const t = I18N[currentLang];
+      const btn = document.getElementById('dailyBonusBtn');
+      const showMonetagAd = window['show_' + MONETAG_ZONE_ID];
+
+      if (typeof showMonetagAd !== 'function') {
+        showToast(t.toastAdUnavailable);
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+
+      try {
+        // 1. Mostrar anuncio recompensado de Monetag y esperar finalización
+        await showMonetagAd();
+
+        // 2. Acreditar las +20 monedas en el servidor tras ver el anuncio
+        const res = await fetch('/api/daily-bonus', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: USER_ID, amount: DAILY_BONUS_AMOUNT })
+        });
+        const data = await res.json();
+        showToast(data.message || ('+' + DAILY_BONUS_AMOUNT + ' moedas!'));
+        if (data.ok) loadDashboard();
+      } catch (err) {
+        showToast(t.toastAdRequired);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     async function requestWithdraw() {
@@ -394,8 +563,11 @@
       showToast(t.toastRefCopied);
     }
 
-    applyLanguage();
-    loadDashboard();
+    (async function initApp() {
+      applyLanguage();
+      const safe = await runAntiFraudShield();
+      if (safe) loadDashboard();
+    })();
   </script>
 </body>
 </html>

@@ -1,0 +1,11 @@
+# CashPlay - Actualización de Seguridad y Monetización
+
+## Contenido del ZIP:
+- `index.html`: Archivo principal actualizado con:
+  1. Bono diario reducido (+20 monedas) vinculado a anuncio recompensado de Monetag.
+  2. Escudo antifraude visible (bloqueo de VPN/Proxy, emuladores y root/automatización).
+  3. Aviso de verificación de identidad (PIX/PayPal/USDT) y modales de Términos de Uso y Política de Privacidad en Sacar y Perfil.
+
+## Instrucciones rápidas:
+1. Abre `index.html` y reemplaza las 2 apariciones de `TU_ZONE_ID` por el número de tu zona Rewarded Interstitial de Monetag.
+2. Súbelo a tu repositorio `Alejraf/Fastaap` en GitHub (o usa "Upload files" directamente desde el navegador de tu teléfono para reemplazar `index.html`).
