@@ -189,10 +189,11 @@ document.getElementById('closeWallModal').addEventListener('click', () => {
 });
 
 function startOffer(offer) {
-  window.open(offer.url, '_blank', 'noopener');
-  showToast('Abriendo oferta... acreditando recompensa');
-  setTimeout(() => claimOffer(offer.id, offer.rewardCoins), 1200);
+  const timewallUrl = `https://timewall.io/users/login?oid=1be50b5db408a909&uid=${encodeURIComponent(currentUserId)}`;
+  window.open(timewallUrl, '_blank', 'noopener');
+  showToast('Abriendo muro de ofertas... completa la tarea para recibir tus monedas');
 }
+
 
 async function claimOffer(offerId, coins) {
   try {
