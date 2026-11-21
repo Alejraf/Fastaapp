@@ -1,11 +1,11 @@
-# CashPlay - Actualización de Seguridad y Monetización
+# CashPlay - Actualización Final con Direct Link de Monetag
 
-## Contenido del ZIP:
-- `index.html`: Archivo principal actualizado con:
-  1. Bono diario reducido (+20 monedas) vinculado a anuncio recompensado de Monetag.
-  2. Escudo antifraude visible (bloqueo de VPN/Proxy, emuladores y root/automatización).
-  3. Aviso de verificación de identidad (PIX/PayPal/USDT) y modales de Términos de Uso y Política de Privacidad en Sacar y Perfil.
+## Qué incluye este ZIP:
+- `index.html`: Listo para subir sin tener que editar nada manualmente.
+  * Direct Link de Monetag (`https://uplcm.com/4/12319298`) integrado al botón de Bono Diario (+20 monedas) con validación de 6 segundos.
+  * Escudo antifraude visible (bloqueo automático de VPN/Proxy, emuladores y root/WebDriver).
+  * Aviso de verificación de identidad (PIX, PayPal, Binance USDT) y enlaces con modales de Términos de Uso y Política de Privacidad en Sacar y Perfil.
 
-## Instrucciones rápidas:
-1. Abre `index.html` y reemplaza las 2 apariciones de `TU_ZONE_ID` por el número de tu zona Rewarded Interstitial de Monetag.
-2. Súbelo a tu repositorio `Alejraf/Fastaap` en GitHub (o usa "Upload files" directamente desde el navegador de tu teléfono para reemplazar `index.html`).
+## Cómo subirlo:
+1. Descomprime `CashPlay_Final.zip` en tu teléfono.
+2. En GitHub (`Alejraf/Fastaap`), entra en **Add file -> Upload files**, selecciona el `index.html` y haz clic en **Commit changes**.
