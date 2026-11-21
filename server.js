@@ -9,7 +9,7 @@ const POSTBACK_SECRET = process.env.POSTBACK_SECRET || 'CLAVE2026';
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
 // Inicialización de Firebase Firestore
 let db = null;
@@ -289,7 +289,7 @@ app.get('/api/admin/overview', async (req, res) => {
 
 // Fallback para servir siempre public/index.html en /, /?v=2 o cualquier ruta SPA
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
