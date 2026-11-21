@@ -9,7 +9,13 @@ const POSTBACK_SECRET = process.env.POSTBACK_SECRET || 'CLAVE2026';
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.static(__dirname, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    }
+  }
+}));
 
 let db = null;
 let firestoreActive = false;
@@ -389,9 +395,10 @@ app.get('/admin', async (req, res) => {
 });
 
 app.get('*', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`CashPlay Offerwall v2.4 ejecutándose en http://localhost:${PORT}`);
+  console.log(`CashPlay Offerwall v2.5 ejecutándose en http://localhost:${PORT}`);
 });
