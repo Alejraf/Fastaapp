@@ -1,17 +1,14 @@
 {
   "name": "cashplay-offerwall-v2",
-  "version": "2.0.0",
-  "description": "App Web Móvil PWA de recompensas con Offerwalls, Referidos, Base de Datos Persistente y Postbacks S2S",
+  "version": "2.1.0",
+  "description": "Plataforma GPT / Offerwall CashPlay con Firestore y TimeWall S2S",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.1"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "express": "^4.18.2",
+    "firebase-admin": "^12.1.0"
   }
 }

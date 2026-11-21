@@ -400,4 +400,3 @@ initDB().then(() => {
     console.log(`CashPlay Offerwall v2.1 ejecutándose en http://localhost:${PORT}`);
   });
 });
-      
