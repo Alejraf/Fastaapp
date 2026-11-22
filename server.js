@@ -8,8 +8,8 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 const POSTBACK_SECRET = process.env.POSTBACK_SECRET || 'CLAVE2026';
+const STREAK_REWARDS = [5, 8, 10, 12, 15, 18, 35];
 
-// Inicialización de Firebase Firestore
 let db = null;
 try {
   let serviceAccount = null;
@@ -38,7 +38,11 @@ function getClientIp(req) {
   return (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 }
 
-// Obtener o crear usuario (Bono bienvenida calibrado en 200 monedas = $0.20 USD)
+function getYesterdayKey() {
+  return new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+}
+
+// Obtener o crear usuario
 app.post('/api/user', async (req, res) => {
   try {
     const { userId, ref } = req.body || {};
@@ -54,6 +58,8 @@ app.post('/api/user', async (req, res) => {
           balance: 200,
           offersCompleted: 0,
           offerwallCoins: 0,
+          streakDay: 0,
+          lastStreakDate: null,
           referredBy: ref && ref !== userId ? String(ref).slice(0, 32) : null,
           ip,
           createdAt: new Date().toISOString()
@@ -66,7 +72,7 @@ app.post('/api/user', async (req, res) => {
     }
 
     if (!memUsers[userId]) {
-      memUsers[userId] = { userId, balance: 200, offersCompleted: 0, offerwallCoins: 0, ip };
+      memUsers[userId] = { userId, balance: 200, offersCompleted: 0, offerwallCoins: 0, streakDay: 0, ip };
     }
     return res.json(memUsers[userId]);
   } catch (err) {
@@ -105,6 +111,96 @@ app.post('/api/daily-bonus', async (req, res) => {
     u.lastDailyBonus = today;
     memUsers[userId] = u;
     return res.json({ ok: true, balance: u.balance });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: 'SERVER_ERROR' });
+  }
+});
+
+// Racha Diaria de 7 Días (+5 a +35 monedas)
+app.post('/api/streak-claim', async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ ok: false, error: 'INVALID_USER' });
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = getYesterdayKey();
+
+    if (db) {
+      const userRef = db.collection('users').doc(userId);
+      const out = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists) throw new Error('NO_USER');
+        const data = snap.data();
+        if (data.lastStreakDate === today) {
+          return { already: true, balance: data.balance, streakDay: data.streakDay || 1 };
+        }
+
+        let nextDay = 1;
+        if (data.lastStreakDate === yesterday) {
+          nextDay = Number(data.streakDay || 0) >= 7 ? 1 : Number(data.streakDay || 0) + 1;
+        }
+        const reward = STREAK_REWARDS[nextDay - 1];
+        const nextBal = Number(data.balance || 0) + reward;
+
+        tx.update(userRef, {
+          balance: nextBal,
+          streakDay: nextDay,
+          lastStreakDate: today
+        });
+        return { already: false, balance: nextBal, streakDay: nextDay, reward };
+      });
+
+      if (out.already) return res.status(429).json({ ok: false, error: 'Sequência de hoje já resgatada.' });
+      return res.json({ ok: true, ...out });
+    }
+
+    const u = memUsers[userId] || { userId, balance: 200, streakDay: 0 };
+    if (u.lastStreakDate === today) return res.status(429).json({ ok: false, error: 'Sequência de hoje já resgatada.' });
+    u.streakDay = u.lastStreakDate === yesterday ? (u.streakDay >= 7 ? 1 : u.streakDay + 1) : 1;
+    const reward = STREAK_REWARDS[u.streakDay - 1];
+    u.balance += reward;
+    u.lastStreakDate = today;
+    memUsers[userId] = u;
+    return res.json({ ok: true, balance: u.balance, streakDay: u.streakDay, reward });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: 'SERVER_ERROR' });
+  }
+});
+
+// Cofre de Tiempo Activo (+5 monedas, máx. 6 cofres/día)
+app.post('/api/playtime-chest', async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ ok: false, error: 'INVALID_USER' });
+    const today = new Date().toISOString().slice(0, 10);
+    const REWARD = 5;
+    const MAX_CHESTS = 6;
+
+    if (db) {
+      const userRef = db.collection('users').doc(userId);
+      const out = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists) throw new Error('NO_USER');
+        const data = snap.data();
+        const stats = data.chestStats || { date: today, count: 0 };
+        const countToday = stats.date === today ? Number(stats.count || 0) : 0;
+        if (countToday >= MAX_CHESTS) {
+          return { limitReached: true, balance: Number(data.balance || 0) };
+        }
+        const nextBal = Number(data.balance || 0) + REWARD;
+        tx.update(userRef, {
+          balance: nextBal,
+          chestStats: { date: today, count: countToday + 1 }
+        });
+        return { limitReached: false, balance: nextBal };
+      });
+      if (out.limitReached) return res.status(429).json({ ok: false, error: 'DAILY_CHEST_LIMIT' });
+      return res.json({ ok: true, reward: REWARD, balance: out.balance });
+    }
+
+    const u = memUsers[userId] || { userId, balance: 200 };
+    u.balance += REWARD;
+    memUsers[userId] = u;
+    return res.json({ ok: true, reward: REWARD, balance: u.balance });
   } catch (err) {
     return res.status(500).json({ ok: false, error: 'SERVER_ERROR' });
   }
@@ -170,7 +266,7 @@ app.post('/api/game-reward', async (req, res) => {
   }
 });
 
-// Postback S2S de Offerwalls (TimeWall / ayeT-Studios)
+// Postback S2S de Offerwalls
 app.get('/api/postback', async (req, res) => {
   try {
     const { secret, userid, amount, txid, offer_name } = req.query;
@@ -212,7 +308,6 @@ app.get('/api/postback', async (req, res) => {
           createdAt: new Date().toISOString()
         });
 
-        // Comisión 10% para referido si existe
         if (uSnap.exists && uData.referredBy) {
           const refId = uData.referredBy;
           const refBonus = Math.floor(coins * 0.1);
@@ -242,7 +337,7 @@ app.get('/api/postback', async (req, res) => {
   }
 });
 
-// Solicitud de retiro (Requiere >= 2.000 monedas y al menos 1 oferta completada en TimeWall)
+// Solicitud de retiro
 app.post('/api/withdraw', async (req, res) => {
   try {
     const { userId, method, account, amount } = req.body || {};
@@ -317,7 +412,7 @@ app.post('/api/withdraw', async (req, res) => {
   }
 });
 
-// Panel de administración (/admin?secret=...) con indicador de rentabilidad por usuario
+// Panel de administración (/admin?secret=...)
 app.get('/admin', async (req, res) => {
   if (req.query.secret !== POSTBACK_SECRET) return res.status(403).send('Acceso denegado');
 

@@ -1,11 +1,18 @@
-// CashPlay Arcade Module v2.8 (Calibrado para Rentabilidad Sostenible)
-// Juegos incluidos: 2048 Fusion, Memory Match, Neon Serpent
-// +3 monedas por nivel completado (máx. 10 niveles/día = +30 monedas/día)
+// CashPlay Arcade + Playtime Chest v2.9
+// Incluye:
+// - Cofre de Tiempo Activo (180 segundos de jugadas activas -> +5 monedas al abrir con anuncio Monetag, máx. 6/día)
+// - 3 juegos clásicos legales: 2048 Fusion, Memory Match, Neon Serpent (+3 monedas/nivel, máx. 10 niveles/día)
 
 (function () {
-  const DAILY_LIMIT = 10;
-  const REWARD_COINS = 3;
+  const DAILY_LEVEL_LIMIT = 10;
+  const LEVEL_REWARD_COINS = 3;
+  const CHEST_TARGET_SECONDS = 180; // 3 minutos jugando activamente
+  const CHEST_REWARD_COINS = 5;
+  const CHEST_DAILY_LIMIT = 6;
   const AD_WAIT_SECONDS = 5;
+
+  let activeSeconds = 0;
+  let lastActionTs = 0;
 
   function getTodayKey() {
     return new Date().toISOString().slice(0, 10);
@@ -28,17 +35,74 @@
     return count;
   }
 
+  function getChestClaims() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('cp_chest_claims') || '{}');
+      if (raw.date !== getTodayKey()) return 0;
+      return Number(raw.count || 0);
+    } catch {
+      return 0;
+    }
+  }
+
+  function incrementChestClaims() {
+    const count = getChestClaims() + 1;
+    localStorage.setItem('cp_chest_claims', JSON.stringify({ date: getTodayKey(), count }));
+    updateChestUI();
+  }
+
+  // Registra actividad real del jugador (solo suma tiempo mientras juega de verdad)
+  function registerGameActivity() {
+    const now = Date.now();
+    if (lastActionTs > 0) {
+      const delta = Math.min(8, (now - lastActionTs) / 1000); // Máx 8s entre movimientos
+      if (delta > 0.2 && activeSeconds < CHEST_TARGET_SECONDS) {
+        activeSeconds = Math.min(CHEST_TARGET_SECONDS, activeSeconds + delta);
+        updateChestUI();
+      }
+    }
+    lastActionTs = now;
+  }
+
+  function updateChestUI() {
+    const bar = document.getElementById('cp-chest-bar');
+    const txt = document.getElementById('cp-chest-txt');
+    const btn = document.getElementById('cp-chest-btn');
+    if (!bar || !txt || !btn) return;
+
+    const used = getChestClaims();
+    const pct = Math.min(100, Math.round((activeSeconds / CHEST_TARGET_SECONDS) * 100));
+    bar.style.width = pct + '%';
+
+    if (used >= CHEST_DAILY_LIMIT) {
+      txt.textContent = `Baús de hoje concluídos (${used}/${CHEST_DAILY_LIMIT})`;
+      btn.disabled = true;
+      btn.textContent = 'Limite diário';
+    } else if (activeSeconds >= CHEST_TARGET_SECONDS) {
+      txt.textContent = `🎁 Baú pronto! (${used}/${CHEST_DAILY_LIMIT} hoje)`;
+      btn.disabled = false;
+      btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+      btn.textContent = `Abrir (+${CHEST_REWARD_COINS} 🪙)`;
+    } else {
+      const rem = Math.ceil(CHEST_TARGET_SECONDS - activeSeconds);
+      txt.textContent = `⏳ Baú Ativo: jogue mais ${rem}s (${used}/${CHEST_DAILY_LIMIT})`;
+      btn.disabled = true;
+      btn.style.background = '#1e293b';
+      btn.textContent = `${pct}%`;
+    }
+  }
+
   function updateQuotaBadge() {
     const el = document.getElementById('cp-games-quota');
     if (el) {
       const used = getDailyClaims();
-      el.textContent = `${used}/${DAILY_LIMIT} níveis premiados hoje (+${REWARD_COINS} moedas/nível)`;
+      el.textContent = `${used}/${DAILY_LEVEL_LIMIT} níveis premiados hoje (+${LEVEL_REWARD_COINS} moedas/nível)`;
     }
   }
 
   function showLevelUpModal(gameName, levelReached, onContinue) {
     const used = getDailyClaims();
-    const canClaim = used < DAILY_LIMIT;
+    const canClaim = used < DAILY_LEVEL_LIMIT;
 
     let overlay = document.getElementById('cp-levelup-overlay');
     if (!overlay) {
@@ -56,10 +120,10 @@
         ${
           canClaim
             ? `<button id="cp-claim-level-btn" style="width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:10px;">
-                🎬 Ver Anúncio e Ganhar +${REWARD_COINS} Moedas
+                🎬 Ver Anúncio e Ganhar +${LEVEL_REWARD_COINS} Moedas
                </button>`
             : `<div style="padding:10px;border-radius:10px;background:#1e293b;color:#94a3b8;font-size:12px;margin-bottom:10px;">
-                Limite diário de ${DAILY_LIMIT} recompensas atingido. Continue jogando livremente!
+                Limite diário de ${DAILY_LEVEL_LIMIT} recompensas atingido. Continue jogando livremente!
                </div>`
         }
         <button id="cp-skip-level-btn" style="width:100%;padding:10px;border:1px solid #334155;border-radius:10px;background:transparent;color:#cbd5e1;font-size:13px;cursor:pointer;">
@@ -81,6 +145,7 @@
         localStorage.setItem(
           'cp_pending_game_reward',
           JSON.stringify({
+            type: 'level',
             game: gameName,
             level: levelReached,
             openedAt: Date.now()
@@ -93,51 +158,69 @@
     }
   }
 
-  async function checkPendingGameReward() {
-    const raw = localStorage.getItem('cp_pending_game_reward');
-    if (!raw) return;
-    try {
-      const data = JSON.parse(raw);
-      const elapsed = (Date.now() - Number(data.openedAt || 0)) / 1000;
-      if (elapsed < AD_WAIT_SECONDS) return;
-
-      localStorage.removeItem('cp_pending_game_reward');
-      if (getDailyClaims() >= DAILY_LIMIT) return;
-
-      const userId = localStorage.getItem('cashplay_uid');
-      if (!userId) return;
-
-      const res = await fetch('/api/game-reward', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          game: data.game,
-          level: data.level
-        })
-      });
-      const json = await res.json();
-      if (json && json.ok) {
-        incrementDailyClaims();
-        if (typeof window.updateBalanceUI === 'function' && typeof json.balance === 'number') {
-          window.updateBalanceUI(json.balance);
+  async function checkPendingArcadeRewards() {
+    // 1. Verificar recompensa de subida de nivel
+    const rawLevel = localStorage.getItem('cp_pending_game_reward');
+    if (rawLevel) {
+      try {
+        const data = JSON.parse(rawLevel);
+        if ((Date.now() - Number(data.openedAt || 0)) / 1000 >= AD_WAIT_SECONDS) {
+          localStorage.removeItem('cp_pending_game_reward');
+          const userId = localStorage.getItem('cashplay_uid');
+          if (userId && getDailyClaims() < DAILY_LEVEL_LIMIT) {
+            const res = await fetch('/api/game-reward', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, game: data.game, level: data.level })
+            });
+            const json = await res.json();
+            if (json && json.ok) {
+              incrementDailyClaims();
+              if (typeof window.updateBalanceUI === 'function') window.updateBalanceUI(json.balance);
+              const overlay = document.getElementById('cp-levelup-overlay');
+              if (overlay) overlay.style.display = 'none';
+              alert(`+${LEVEL_REWARD_COINS} moedas creditadas com sucesso!`);
+            }
+          }
         }
-        const overlay = document.getElementById('cp-levelup-overlay');
-        if (overlay) overlay.style.display = 'none';
-        alert(`+${REWARD_COINS} moedas creditadas com sucesso!`);
-      }
-    } catch (e) {
-      console.error('Erro ao validar recompensa de jogo:', e);
+      } catch (e) {}
+    }
+
+    // 2. Verificar recompensa de Cofre de Tiempo Activo
+    const rawChest = localStorage.getItem('cp_pending_chest_reward');
+    if (rawChest) {
+      try {
+        const data = JSON.parse(rawChest);
+        if ((Date.now() - Number(data.openedAt || 0)) / 1000 >= AD_WAIT_SECONDS) {
+          localStorage.removeItem('cp_pending_chest_reward');
+          const userId = localStorage.getItem('cashplay_uid');
+          if (userId && getChestClaims() < CHEST_DAILY_LIMIT) {
+            const res = await fetch('/api/playtime-chest', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId })
+            });
+            const json = await res.json();
+            if (json && json.ok) {
+              activeSeconds = 0;
+              lastActionTs = 0;
+              incrementChestClaims();
+              if (typeof window.updateBalanceUI === 'function') window.updateBalanceUI(json.balance);
+              alert(`🎁 Baú aberto! +${CHEST_REWARD_COINS} moedas creditadas!`);
+            }
+          }
+        }
+      } catch (e) {}
     }
   }
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      checkPendingGameReward();
+      checkPendingArcadeRewards();
     }
   });
 
-  // JUEGO 1: 2048 FUSION (Licencia MIT)
+  // JUEGO 1: 2048 FUSION
   function mount2048(container) {
     let grid = Array(16).fill(0);
     let score = 0;
@@ -166,6 +249,7 @@
     }
 
     function move(dir) {
+      registerGameActivity();
       const prev = grid.join(',');
       for (let r = 0; r < 4; r++) {
         let line = [];
@@ -250,6 +334,7 @@
     }
 
     function flipCard(idx) {
+      registerGameActivity();
       if (lock || flipped.includes(idx) || matched.includes(idx)) return;
       flipped.push(idx);
       render();
@@ -369,6 +454,7 @@
         `;
         container.querySelectorAll('button[data-sd]').forEach((b) => {
           b.onclick = () => {
+            registerGameActivity();
             const d = b.dataset.sd;
             if (d === 'U' && dir.y !== 1) dir = { x: 0, y: -1 };
             if (d === 'D' && dir.y !== -1) dir = { x: 0, y: 1 };
@@ -403,6 +489,17 @@
 
     root.innerHTML = `
       <div style="background:#131c31;border:1px solid #253354;border-radius:16px;padding:16px;margin-bottom:18px;">
+        <!-- COFRE DE TIEMPO ACTIVO -->
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="flex:1;">
+            <div id="cp-chest-txt" style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:6px;">⏳ Baú Ativo: jogue 180s</div>
+            <div style="height:6px;background:#1e293b;border-radius:999px;overflow:hidden;">
+              <div id="cp-chest-bar" style="height:100%;width:0%;background:#10b981;transition:width 0.3s;"></div>
+            </div>
+          </div>
+          <button id="cp-chest-btn" disabled style="padding:8px 12px;border:none;border-radius:8px;background:#1e293b;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">0%</button>
+        </div>
+
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
           <div>
             <h3 style="margin:0;font-size:16px;">🕹️ CashPlay Arcade (Suba de Nível)</h3>
@@ -419,6 +516,15 @@
     `;
 
     updateQuotaBadge();
+    updateChestUI();
+
+    document.getElementById('cp-chest-btn').onclick = () => {
+      if (activeSeconds < CHEST_TARGET_SECONDS || getChestClaims() >= CHEST_DAILY_LIMIT) return;
+      const directLink = window.MONETAG_DIRECT_LINK || 'https://uplcm.com/4/12319298';
+      localStorage.setItem('cp_pending_chest_reward', JSON.stringify({ openedAt: Date.now() }));
+      window.open(directLink, '_blank', 'noopener');
+    };
+
     const stage = document.getElementById('cp-arcade-stage');
     const btns = root.querySelectorAll('.cp-tab-game');
 

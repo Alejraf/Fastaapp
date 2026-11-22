@@ -13,7 +13,6 @@
       --card-2: #19243e;
       --border: #253354;
       --primary: #2563eb;
-      --primary-hover: #1d4ed8;
       --accent: #10b981;
       --gold: #f59e0b;
       --text: #f8fafc;
@@ -73,7 +72,7 @@
       border: 1px solid #1e4b4f;
       border-radius: 18px;
       padding: 18px;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
     .hero-badge {
       display: inline-block; font-size: 11px; font-weight: 800; color: #34d399;
@@ -88,6 +87,29 @@
     }
     .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
+    /* RACHA DIARIA 7 DÍAS */
+    .streak-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 14px; margin-bottom: 16px;
+    }
+    .streak-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .streak-top h3 { margin: 0; font-size: 14px; }
+    .streak-top span { font-size: 11px; color: #fbbf24; font-weight: 700; }
+    .streak-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 10px; }
+    .streak-day {
+      background: #0f172a; border: 1px solid #253354; border-radius: 10px;
+      padding: 6px 2px; text-align: center; font-size: 10px;
+    }
+    .streak-day.done { border-color: #10b981; background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .streak-day.today { border-color: #f59e0b; background: rgba(245, 158, 11, 0.16); }
+    .streak-day strong { display: block; font-size: 11px; margin-top: 2px; color: #fbbf24; }
+    .btn-streak {
+      width: 100%; padding: 10px; border: none; border-radius: 10px;
+      background: linear-gradient(135deg, #f59e0b, #d97706); color: #0b1120;
+      font-weight: 800; font-size: 13px; cursor: pointer;
+    }
+    .btn-streak:disabled { background: #1e293b; color: #64748b; cursor: not-allowed; }
+
     .section-hdr {
       display: flex; justify-content: space-between; align-items: center;
       margin: 18px 0 10px;
@@ -98,7 +120,7 @@
     .wall-card {
       background: var(--card); border: 1px solid var(--border); border-radius: 14px;
       padding: 14px; display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 10px; cursor: pointer;
+      margin-bottom: 14px; cursor: pointer;
     }
     .wall-left { display: flex; align-items: center; gap: 12px; }
     .wall-ico {
@@ -108,11 +130,8 @@
     .wall-title { font-weight: 800; font-size: 15px; }
     .wall-reward { font-size: 12px; color: #fbbf24; font-weight: 700; }
     .wall-desc { font-size: 12px; color: var(--muted); }
-    .tag {
-      font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 6px;
-      background: rgba(56, 189, 248, 0.15); color: #38bdf8;
-    }
     .tag-gold {
+      font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 6px;
       background: rgba(245, 158, 11, 0.18); color: #fbbf24;
     }
 
@@ -200,6 +219,18 @@
         <button class="btn-primary" id="btn-daily-bonus" data-i18n="dailyBtn">🎬 Bônus Diário (+10 moedas • Ver Anúncio)</button>
       </div>
 
+      <!-- RACHA DIARIA DE 7 DÍAS -->
+      <div class="streak-card">
+        <div class="streak-top">
+          <h3>🔥 Sequência Diária (7 Dias)</h3>
+          <span id="streak-status">Dia 1 de 7</span>
+        </div>
+        <div class="streak-grid" id="streak-grid"></div>
+        <button class="btn-streak" id="btn-claim-streak" onclick="claimDailyStreak()">
+          🎁 Resgatar Dia 1 (+5 moedas • Ver Anúncio)
+        </button>
+      </div>
+
       <!-- BARRA DE PROGRESO HACIA EL RETIRO -->
       <div class="progress-wrap">
         <div class="progress-top">
@@ -209,7 +240,7 @@
         <div class="progress-bar"><div class="progress-fill" id="goal-fill"></div></div>
       </div>
 
-      <!-- MURALS DE OFERTAS PRIMERO (MAYOR GANANCIA PARA AMBOS) -->
+      <!-- MURALS DE OFERTAS PRIMERO -->
       <div class="section-hdr">
         <h2 data-i18n="wallsTitle">Murais de Ofertas (Ganho Rápido)</h2>
         <span data-i18n="tapOpen">Toque para abrir</span>
@@ -224,10 +255,10 @@
             <div class="wall-desc" data-i18n="twDesc">Jogos, Pesquisas, Cliques e Cadastros</div>
           </div>
         </div>
-        <span class="tag tag-gold">MAIS PAGA</span>
+        <span class="tag-gold">MAIS PAGA</span>
       </div>
 
-      <!-- SECCIÓN ARCADE LEGAL (+3 MOEDAS/NÍVEL, MÁX 10/DIA) -->
+      <!-- SECCIÓN ARCADE + COFRE DE 3 MINUTOS ACTIVOS -->
       <div id="cashplay-arcade-root"></div>
 
       <div class="section-hdr">
@@ -238,25 +269,25 @@
       <div class="cat-grid">
         <div class="cat-card" onclick="openTimeWall()">
           <div class="cat-ico">🎮</div>
-          <div class="cat-title" data-i18n="c1t">Jogos e Apps</div>
+          <div class="cat-title">Jogos e Apps</div>
           <div class="cat-sub">+500 a +2.500 moedas</div>
           <div class="cat-txt">Instale jogos verificados e receba moedas automáticas</div>
         </div>
         <div class="cat-card" onclick="openTimeWall()">
           <div class="cat-ico">📋</div>
-          <div class="cat-title" data-i18n="c2t">Pesquisas Pagas</div>
+          <div class="cat-title">Pesquisas Pagas</div>
           <div class="cat-sub">+100 a +800 moedas</div>
           <div class="cat-txt">Responda pesquisas rápidas e ganhe na hora</div>
         </div>
         <div class="cat-card" onclick="openTimeWall()">
           <div class="cat-ico">⚡</div>
-          <div class="cat-title" data-i18n="c3t">Tarefas Rápidas</div>
+          <div class="cat-title">Tarefas Rápidas</div>
           <div class="cat-sub">+20 a +300 moedas</div>
           <div class="cat-txt">Microtarefas verificadas com crédito instantâneo</div>
         </div>
         <div class="cat-card" onclick="openTimeWall()">
           <div class="cat-ico">🖱️</div>
-          <div class="cat-title" data-i18n="c4t">Cliques e Vídeos</div>
+          <div class="cat-title">Cliques e Vídeos</div>
           <div class="cat-sub">+5 a +50 moedas</div>
           <div class="cat-txt">Visite sites patrocinados e acumule pontos</div>
         </div>
@@ -331,6 +362,7 @@
   <script>
     window.MONETAG_DIRECT_LINK = 'https://uplcm.com/4/12319298';
     const TIMEWALL_OID = '1be50b5db408a909';
+    const STREAK_REWARDS = [5, 8, 10, 12, 15, 18, 35];
 
     function toast(msg) {
       const t = document.getElementById('toast');
@@ -347,6 +379,27 @@
         localStorage.setItem('cashplay_uid', uid);
       }
       return uid;
+    }
+
+    function renderStreakUI(streakDay, claimedToday) {
+      const day = Math.min(7, Math.max(1, Number(streakDay || 1)));
+      document.getElementById('streak-status').textContent = `Dia ${day} de 7`;
+      const grid = document.getElementById('streak-grid');
+      grid.innerHTML = STREAK_REWARDS.map((pts, idx) => {
+        const d = idx + 1;
+        const cls = d < day || (d === day && claimedToday) ? 'done' : d === day ? 'today' : '';
+        return `<div class="streak-day ${cls}">D${d}<strong>+${pts}</strong></div>`;
+      }).join('');
+
+      const btn = document.getElementById('btn-claim-streak');
+      const reward = STREAK_REWARDS[day - 1];
+      if (claimedToday) {
+        btn.disabled = true;
+        btn.textContent = `✅ Dia ${day} resgatado! Volte amanhã`;
+      } else {
+        btn.disabled = false;
+        btn.textContent = `🎁 Resgatar Dia ${day} (+${reward} moedas • Ver Anúncio)`;
+      }
     }
 
     window.updateBalanceUI = function (coins, offersCount) {
@@ -369,6 +422,7 @@
       document.getElementById('ref-link-input').value = location.origin + '/?ref=' + uid;
 
       const ref = new URLSearchParams(location.search).get('ref');
+      const today = new Date().toISOString().slice(0, 10);
       try {
         const res = await fetch('/api/user', {
           method: 'POST',
@@ -378,11 +432,44 @@
         const data = await res.json();
         if (data && typeof data.balance === 'number') {
           window.updateBalanceUI(data.balance, Number(data.offersCompleted || 0));
+          const claimedToday = data.lastStreakDate === today;
+          const nextDay = claimedToday ? Number(data.streakDay || 1) : Math.min(7, Number(data.streakDay || 0) + 1);
+          renderStreakUI(nextDay, claimedToday);
         }
       } catch (e) {
-        console.error(e);
+        renderStreakUI(1, false);
       }
     };
+
+    function claimDailyStreak() {
+      const today = new Date().toISOString().slice(0, 10);
+      localStorage.setItem('cp_streak_pending', JSON.stringify({ date: today, ts: Date.now() }));
+      window.open(window.MONETAG_DIRECT_LINK, '_blank', 'noopener');
+      toast('Assista ao anúncio por alguns segundos e volte para liberar sua sequência!');
+    }
+
+    async function checkStreakReturn() {
+      const raw = localStorage.getItem('cp_streak_pending');
+      if (!raw) return;
+      try {
+        const p = JSON.parse(raw);
+        if ((Date.now() - p.ts) / 1000 < 5) return;
+        localStorage.removeItem('cp_streak_pending');
+        const res = await fetch('/api/streak-claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: getUserId() })
+        });
+        const data = await res.json();
+        if (data && data.ok) {
+          window.updateBalanceUI(data.balance);
+          renderStreakUI(data.streakDay, true);
+          toast(`🔥 Sequência Dia ${data.streakDay}: +${data.reward} moedas creditadas!`);
+        } else if (data && data.error) {
+          toast(data.error);
+        }
+      } catch (e) {}
+    }
 
     function openTimeWall() {
       const uid = getUserId();
@@ -390,7 +477,6 @@
       window.open(url, '_blank', 'noopener');
     }
 
-    // Bono diario (+10 moedas) calibrado para rentabilidad con Monetag
     document.getElementById('btn-daily-bonus').onclick = function () {
       const today = new Date().toISOString().slice(0, 10);
       if (localStorage.getItem('cp_daily_claimed') === today) {
@@ -426,7 +512,10 @@
     }
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') checkDailyReturn();
+      if (document.visibilityState === 'visible') {
+        checkDailyReturn();
+        checkStreakReturn();
+      }
     });
 
     async function submitWithdraw() {
