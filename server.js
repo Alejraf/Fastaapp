@@ -1,404 +1,353 @@
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const admin = require('firebase-admin');
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+app.use(express.json());
+app.use(express.static(__dirname));
+
 const POSTBACK_SECRET = process.env.POSTBACK_SECRET || 'CLAVE2026';
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static(__dirname, {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    }
-  }
-}));
-
+// Inicialización de Firebase Firestore
 let db = null;
-let firestoreActive = false;
-
 try {
+  let serviceAccount = null;
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-    }
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  } else if (fs.existsSync('/etc/secrets/firebase-key.json')) {
+    serviceAccount = JSON.parse(fs.readFileSync('/etc/secrets/firebase-key.json', 'utf8'));
+  } else if (fs.existsSync(path.join(__dirname, 'firebase-key.json'))) {
+    serviceAccount = JSON.parse(fs.readFileSync(path.join(__dirname, 'firebase-key.json'), 'utf8'));
+  }
+
+  if (serviceAccount) {
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     db = admin.firestore();
-    firestoreActive = true;
-    console.log('✅ Conectado a Firebase Firestore correctamente.');
-  } else {
-    console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT no configurada. Usando memoria temporal.');
+    console.log('Firestore conectado correctamente.');
   }
-} catch (error) {
-  console.error('⚠️ Error inicializando Firebase:', error.message);
+} catch (err) {
+  console.error('Error iniciando Firestore:', err.message);
 }
 
-let memoryState = {
-  users: {
-    usr_demo: {
-      id: 'usr_demo',
-      name: 'Usuario Demo',
-      coins: 500,
-      totalEarned: 500,
-      referralCode: 'DEMO2026',
-      referredBy: null,
-      referralsCount: 0,
-      referralEarnings: 0,
-      history: []
-    }
-  },
-  withdrawals: [],
-  processedTxids: {}
-};
-
-const DEFAULT_OFFERS = [
-  {
-    id: 'off_lords',
-    title: 'Lords Mobile: Guerra de Reinos',
-    subtitle: 'Instala y alcanza el Castillo Nivel 11',
-    reward: 2400,
-    category: 'Juego',
-    platform: 'Android / iOS',
-    badge: 'HOT',
-    icon: '🏰',
-    url: 'https://www.google.com/search?q=Lords+Mobile'
-  },
-  {
-    id: 'off_tiktok',
-    title: 'TikTok Lite',
-    subtitle: 'Descarga, regístrate y mira videos 3 minutos',
-    reward: 1200,
-    category: 'App',
-    platform: 'Android',
-    badge: 'RÁPIDO',
-    icon: '🎵',
-    url: 'https://www.google.com/search?q=TikTok+Lite'
-  },
-  {
-    id: 'off_survey',
-    title: 'Encuesta Perfil Consumidor LATAM',
-    subtitle: 'Responde 12 preguntas sobre hábitos digitales',
-    reward: 850,
-    category: 'Encuesta',
-    platform: 'Web',
-    badge: 'FÁCIL',
-    icon: '📋',
-    url: 'https://www.google.com/search?q=Encuestas+remuneradas'
-  },
-  {
-    id: 'off_nubank',
-    title: 'Cuenta Digital Sin Comisiones',
-    subtitle: 'Abre tu cuenta gratuita y verifica identidad',
-    reward: 3500,
-    category: 'Finanzas',
-    platform: 'Android / iOS',
-    badge: 'TOP PAGO',
-    icon: '💳',
-    url: 'https://www.google.com/search?q=Cuenta+digital'
-  }
-];
-
-async function loadState() {
-  if (!firestoreActive || !db) return memoryState;
-  try {
-    const doc = await db.collection('cashplay_system').doc('main_db').get();
-    if (doc.exists) {
-      const data = doc.data();
-      memoryState = {
-        users: data.users || memoryState.users,
-        withdrawals: data.withdrawals || [],
-        processedTxids: data.processedTxids || {}
-      };
-    } else {
-      await saveState();
-    }
-  } catch (err) {
-    console.error('Error leyendo Firestore:', err.message);
-  }
-  return memoryState;
-}
-
-async function saveState() {
-  if (!firestoreActive || !db) return;
-  try {
-    await db.collection('cashplay_system').doc('main_db').set(memoryState, { merge: true });
-  } catch (err) {
-    console.error('Error guardando en Firestore:', err.message);
-  }
-}
-
-function getOrCreateUser(state, userId, clientIp) {
-  const cleanId = (userId || 'usr_1sojely').trim();
-  if (!state.users[cleanId]) {
-    state.users[cleanId] = {
-      id: cleanId,
-      name: 'Usuario',
-      coins: 500,
-      totalEarned: 500,
-      referralCode: 'CP' + Math.random().toString(36).substring(2, 7).toUpperCase(),
-      referredBy: null,
-      referralsCount: 0,
-      referralEarnings: 0,
-      lastDailyBonus: null,
-      lastIp: clientIp || null,
-      createdAt: new Date().toISOString(),
-      history: [
-        {
-          id: 'tx_' + Date.now(),
-          type: 'bonus',
-          title: 'Bono de bienvenida',
-          amount: 500,
-          date: new Date().toISOString()
-        }
-      ]
-    };
-  } else if (clientIp) {
-    state.users[cleanId].lastIp = clientIp;
-  }
-  return state.users[cleanId];
-}
+const memUsers = {};
+const memTx = new Set();
+const memWithdraws = [];
 
 function getClientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) return String(forwarded).split(',')[0].trim();
-  return req.socket?.remoteAddress || '';
+  return (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 }
 
-app.get('/api/dashboard', async (req, res) => {
-  const state = await loadState();
-  const user = getOrCreateUser(state, req.query.userId, getClientIp(req));
-  await saveState();
+// Obtener o crear usuario
+app.post('/api/user', async (req, res) => {
+  try {
+    const { userId, ref } = req.body || {};
+    if (!userId || typeof userId !== 'string') return res.status(400).json({ error: 'INVALID_USER' });
+    const ip = getClientIp(req);
 
-  const userWithdrawals = state.withdrawals.filter(w => w.userId === user.id);
-  res.json({
-    ok: true,
-    user,
-    offers: DEFAULT_OFFERS,
-    withdrawals: userWithdrawals,
-    conversionRate: 1000,
-    firestoreActive
-  });
-});
-
-app.post('/api/daily-bonus', async (req, res) => {
-  const DAILY_REWARD = 20;
-  const state = await loadState();
-  const clientIp = getClientIp(req);
-  const user = getOrCreateUser(state, req.body.userId, clientIp);
-  const today = new Date().toISOString().slice(0, 10);
-
-  if (user.lastDailyBonus === today) {
-    return res.status(400).json({ ok: false, message: 'Ya reclamaste tu bono diario hoy.' });
-  }
-
-  user.coins += DAILY_REWARD;
-  user.totalEarned += DAILY_REWARD;
-  user.lastDailyBonus = today;
-  user.history.unshift({
-    id: 'tx_' + Date.now(),
-    type: 'bonus',
-    title: 'Bono diario (Anuncio Monetag)',
-    amount: DAILY_REWARD,
-    date: new Date().toISOString()
-  });
-
-  await saveState();
-  res.json({ ok: true, coins: user.coins, message: `+${DAILY_REWARD} monedas acreditadas` });
-});
-
-app.post('/api/withdraw', async (req, res) => {
-  const { userId, method, account, amountCoins } = req.body;
-  const coins = Number(amountCoins);
-  if (!method || !account || !coins || coins < 2000) {
-    return res.status(400).json({ ok: false, message: 'El retiro mínimo es de 2,000 monedas ($2.00).' });
-  }
-
-  const state = await loadState();
-  const clientIp = getClientIp(req);
-  const user = getOrCreateUser(state, userId, clientIp);
-
-  if (user.coins < coins) {
-    return res.status(400).json({ ok: false, message: 'Saldo insuficiente.' });
-  }
-
-  user.coins -= coins;
-  const withdrawal = {
-    id: 'wd_' + Date.now(),
-    userId: user.id,
-    method,
-    account,
-    coins,
-    usd: (coins / 1000).toFixed(2),
-    ip: clientIp,
-    status: 'pendiente',
-    createdAt: new Date().toISOString()
-  };
-
-  state.withdrawals.unshift(withdrawal);
-  user.history.unshift({
-    id: withdrawal.id,
-    type: 'withdraw',
-    title: `Retiro ${method}`,
-    amount: -coins,
-    date: withdrawal.createdAt
-  });
-
-  await saveState();
-  res.json({ ok: true, coins: user.coins, withdrawal });
-});
-
-app.get('/api/postback', async (req, res) => {
-  const secret = req.query.secret || req.query.key;
-  if (secret !== POSTBACK_SECRET) {
-    return res.status(403).send('INVALID_SECRET');
-  }
-
-  const userId = req.query.userid || req.query.user_id || req.query.subid;
-  const amount = Math.round(Number(req.query.amount || req.query.coins || 0));
-  const txid = String(req.query.txid || req.query.trans_id || ('tx_' + Date.now()));
-  const offerName = req.query.offer_name || 'Oferta completada';
-
-  if (!userId || amount <= 0) {
-    return res.status(400).send('INVALID_PARAMS');
-  }
-
-  const state = await loadState();
-  if (state.processedTxids[txid]) {
-    return res.status(200).send('OK_DUPLICATE');
-  }
-
-  const user = getOrCreateUser(state, userId);
-  user.coins += amount;
-  user.totalEarned += amount;
-  state.processedTxids[txid] = true;
-  user.history.unshift({
-    id: txid,
-    type: 'offer',
-    title: offerName,
-    amount,
-    date: new Date().toISOString()
-  });
-
-  await saveState();
-  res.status(200).send('OK');
-});
-
-app.get('/api/admin/overview', async (req, res) => {
-  if (req.query.secret !== POSTBACK_SECRET) {
-    return res.status(403).json({ ok: false, message: 'Clave incorrecta' });
-  }
-  const state = await loadState();
-  res.json({
-    firestoreActive,
-    database: 'Firebase Firestore',
-    status: firestoreActive ? 'CONNECTED' : 'MEMORY_ONLY',
-    totalUsers: Object.keys(state.users).length,
-    withdrawals: state.withdrawals
-  });
-});
-
-app.post('/api/admin/withdraw-action', async (req, res) => {
-  const { secret, withdrawalId, action } = req.body;
-  if (secret !== POSTBACK_SECRET) {
-    return res.status(403).json({ ok: false, message: 'Clave incorrecta' });
-  }
-
-  const state = await loadState();
-  const wd = state.withdrawals.find(w => w.id === withdrawalId);
-  if (!wd) {
-    return res.status(404).json({ ok: false, message: 'Retiro no encontrado' });
-  }
-
-  if (action === 'approve') {
-    wd.status = 'pagado';
-    wd.paidAt = new Date().toISOString();
-  } else if (action === 'reject' && wd.status === 'pendiente') {
-    wd.status = 'rechazado';
-    const user = state.users[wd.userId];
-    if (user) {
-      user.coins += wd.coins;
-      user.history.unshift({
-        id: 'ref_' + Date.now(),
-        type: 'bonus',
-        title: `Reembolso retiro rechazado (${wd.method})`,
-        amount: wd.coins,
-        date: new Date().toISOString()
-      });
+    if (db) {
+      const refDoc = db.collection('users').doc(userId);
+      const snap = await refDoc.get();
+      if (!snap.exists) {
+        const newUser = {
+          userId,
+          balance: 500, // Bono de bienvenida
+          referredBy: ref && ref !== userId ? String(ref).slice(0, 32) : null,
+          ip,
+          createdAt: new Date().toISOString()
+        };
+        await refDoc.set(newUser);
+        return res.json(newUser);
+      }
+      await refDoc.update({ lastIp: ip, lastSeen: new Date().toISOString() });
+      return res.json(snap.data());
     }
-  }
 
-  await saveState();
-  res.json({ ok: true });
+    if (!memUsers[userId]) {
+      memUsers[userId] = { userId, balance: 500, ip };
+    }
+    return res.json(memUsers[userId]);
+  } catch (err) {
+    return res.status(500).json({ error: 'SERVER_ERROR' });
+  }
 });
 
+// Bono diario (+20 monedas)
+app.post('/api/daily-bonus', async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'INVALID_USER' });
+    const today = new Date().toISOString().slice(0, 10);
+    const BONUS = 20;
+
+    if (db) {
+      const userRef = db.collection('users').doc(userId);
+      const out = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists) throw new Error('NO_USER');
+        const data = snap.data();
+        if (data.lastDailyBonus === today) {
+          return { already: true, balance: data.balance };
+        }
+        const nextBal = Number(data.balance || 0) + BONUS;
+        tx.update(userRef, { balance: nextBal, lastDailyBonus: today });
+        return { already: false, balance: nextBal };
+      });
+      if (out.already) return res.status(429).json({ ok: false, error: 'Bônus diário já resgatado hoje.' });
+      return res.json({ ok: true, balance: out.balance });
+    }
+
+    const u = memUsers[userId] || { userId, balance: 500 };
+    if (u.lastDailyBonus === today) return res.status(429).json({ ok: false, error: 'Bônus diário já resgatado hoje.' });
+    u.balance += BONUS;
+    u.lastDailyBonus = today;
+    memUsers[userId] = u;
+    return res.json({ ok: true, balance: u.balance });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: 'SERVER_ERROR' });
+  }
+});
+
+// Recompensa de subida de nivel en CashPlay Arcade (+5 monedas, máx. 10/día)
+app.post('/api/game-reward', async (req, res) => {
+  try {
+    const { userId, game, level } = req.body || {};
+    if (!userId || typeof userId !== 'string') {
+      return res.status(400).json({ ok: false, error: 'INVALID_USER' });
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const REWARD = 5;
+    const DAILY_MAX = 10;
+
+    if (db) {
+      const userRef = db.collection('users').doc(userId);
+      const result = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists) throw new Error('USER_NOT_FOUND');
+        const data = snap.data() || {};
+        const gameStats = data.gameStats || { date: today, count: 0 };
+        const countToday = gameStats.date === today ? Number(gameStats.count || 0) : 0;
+
+        if (countToday >= DAILY_MAX) {
+          return { limitReached: true, balance: Number(data.balance || 0) };
+        }
+
+        const newBalance = Number(data.balance || 0) + REWARD;
+        tx.update(userRef, {
+          balance: newBalance,
+          gameStats: { date: today, count: countToday + 1 },
+          lastActive: new Date().toISOString()
+        });
+
+        const txRef = db.collection('transactions').doc();
+        tx.set(txRef, {
+          userId,
+          type: 'game_level_up',
+          game: String(game || 'Arcade').slice(0, 40),
+          level: Number(level || 1),
+          amount: REWARD,
+          createdAt: new Date().toISOString()
+        });
+
+        return { limitReached: false, balance: newBalance };
+      });
+
+      if (result.limitReached) {
+        return res.status(429).json({ ok: false, error: 'DAILY_LIMIT_REACHED', balance: result.balance });
+      }
+      return res.json({ ok: true, reward: REWARD, balance: result.balance });
+    }
+
+    const u = memUsers[userId] || { userId, balance: 500 };
+    u.balance += REWARD;
+    memUsers[userId] = u;
+    return res.json({ ok: true, reward: REWARD, balance: u.balance });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: 'SERVER_ERROR' });
+  }
+});
+
+// Postback S2S de Offerwalls (TimeWall / ayeT-Studios)
+app.get('/api/postback', async (req, res) => {
+  try {
+    const { secret, userid, amount, txid, offer_name } = req.query;
+    if (secret !== POSTBACK_SECRET) return res.status(403).send('INVALID_SECRET');
+    if (!userid || !amount) return res.status(400).send('MISSING_PARAMS');
+
+    const coins = Math.round(Number(amount));
+    if (isNaN(coins) || coins <= 0) return res.status(400).send('INVALID_AMOUNT');
+    const transactionId = String(txid || `${userid}_${Date.now()}`);
+
+    if (db) {
+      const txDoc = db.collection('postbacks').doc(transactionId);
+      const exists = await txDoc.get();
+      if (exists.exists) return res.send('OK'); // Idempotencia
+
+      const userRef = db.collection('users').doc(String(userid));
+      await db.runTransaction(async (tx) => {
+        const uSnap = await tx.get(userRef);
+        const cur = uSnap.exists ? Number(uSnap.data().balance || 0) : 0;
+        tx.set(userRef, { userId: String(userid), balance: cur + coins }, { merge: true });
+        tx.set(txDoc, {
+          userId: String(userid),
+          amount: coins,
+          offerName: String(offer_name || 'Offer'),
+          createdAt: new Date().toISOString()
+        });
+
+        // Comisión 10% para referido si existe
+        if (uSnap.exists && uSnap.data().referredBy) {
+          const refId = uSnap.data().referredBy;
+          const refBonus = Math.floor(coins * 0.1);
+          if (refBonus > 0) {
+            const refUserRef = db.collection('users').doc(refId);
+            const refSnap = await tx.get(refUserRef);
+            if (refSnap.exists) {
+              tx.update(refUserRef, { balance: Number(refSnap.data().balance || 0) + refBonus });
+            }
+          }
+        }
+      });
+      return res.send('OK');
+    }
+
+    if (!memTx.has(transactionId)) {
+      memTx.add(transactionId);
+      const u = memUsers[userid] || { userId: userid, balance: 0 };
+      u.balance += coins;
+      memUsers[userid] = u;
+    }
+    return res.send('OK');
+  } catch (err) {
+    return res.status(500).send('ERROR');
+  }
+});
+
+// Solicitud de retiro
+app.post('/api/withdraw', async (req, res) => {
+  try {
+    const { userId, method, account, amount } = req.body || {};
+    const coins = Number(amount || 0);
+    if (!userId || !method || !account || coins < 2000) {
+      return res.status(400).json({ ok: false, error: 'Saque mínimo: 2.000 moedas.' });
+    }
+    const ip = getClientIp(req);
+
+    if (db) {
+      const userRef = db.collection('users').doc(userId);
+      const out = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists) return { ok: false, error: 'Usuário não encontrado.' };
+        const bal = Number(snap.data().balance || 0);
+        if (bal < coins) return { ok: false, error: 'Saldo insuficiente.' };
+        const nextBal = bal - coins;
+        tx.update(userRef, { balance: nextBal });
+
+        const wdRef = db.collection('withdrawals').doc();
+        tx.set(wdRef, {
+          userId,
+          method: String(method),
+          account: String(account),
+          amount: coins,
+          usd: (coins / 1000).toFixed(2),
+          ip,
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        });
+        return { ok: true, balance: nextBal };
+      });
+      return res.json(out);
+    }
+
+    const u = memUsers[userId];
+    if (!u || u.balance < coins) return res.json({ ok: false, error: 'Saldo insuficiente.' });
+    u.balance -= coins;
+    memWithdraws.push({ id: String(Date.now()), userId, method, account, amount: coins, ip, status: 'pending' });
+    return res.json({ ok: true, balance: u.balance });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: 'SERVER_ERROR' });
+  }
+});
+
+// Panel de administración (/admin?secret=...)
 app.get('/admin', async (req, res) => {
-  if (req.query.secret !== POSTBACK_SECRET) {
-    return res.status(403).send('<h2 style="font-family:sans-serif;text-align:center;margin-top:40px">Acceso denegado. Agrega ?secret=TU_CLAVE en la URL</h2>');
+  if (req.query.secret !== POSTBACK_SECRET) return res.status(403).send('Acceso denegado');
+
+  let usersCount = 0;
+  let list = [];
+  if (db) {
+    const uSnap = await db.collection('users').get();
+    usersCount = uSnap.size;
+    const wSnap = await db.collection('withdrawals').orderBy('createdAt', 'desc').limit(50).get();
+    list = wSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } else {
+    usersCount = Object.keys(memUsers).length;
+    list = memWithdraws;
   }
 
-  const state = await loadState();
-  const totalUsers = Object.keys(state.users).length;
-  const rows = state.withdrawals.map(w => {
-    const isPending = w.status === 'pendiente';
-    const badgeColor = w.status === 'pagado' ? '#16a34a' : (w.status === 'rechazado' ? '#dc2626' : '#d97706');
-    return `
-      <div style="background:#1e293b;padding:15px;border-radius:12px;margin-bottom:12px;border:1px solid #334155">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <strong style="font-size:16px;color:#38bdf8">${w.method} — $${w.usd} USD (${w.coins} monedas)</strong>
-          <span style="background:${badgeColor};color:#fff;padding:3px 10px;border-radius:20px;font-size:12px;text-transform:uppercase">${w.status}</span>
-        </div>
-        <div style="font-size:14px;color:#cbd5e1;margin-bottom:4px"><strong>Cuenta / Llave:</strong> ${w.account}</div>
-        <div style="font-size:13px;color:#94a3b8;margin-bottom:10px">Usuario: ${w.userId} • IP: ${w.ip || 'N/A'} • ${new Date(w.createdAt).toLocaleString()}</div>
-        ${isPending ? `
-          <div style="display:flex;gap:10px">
-            <button onclick="updateWd('${w.id}','approve')" style="flex:1;background:#16a34a;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer">✅ Marcar Pagado</button>
-            <button onclick="updateWd('${w.id}','reject')" style="flex:1;background:#dc2626;color:#fff;border:none;padding:10px;border-radius:8px;font-weight:bold;cursor:pointer">❌ Rechazar</button>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  }).join('');
+  const rows = list
+    .map(
+      (w) => `
+      <tr>
+        <td>${w.userId}</td>
+        <td>${w.method}: <strong>${w.account}</strong></td>
+        <td>${w.amount} ($${w.usd || (w.amount / 1000).toFixed(2)})</td>
+        <td>${w.ip || '-'}</td>
+        <td>${w.status}</td>
+        <td>
+          ${
+            w.status === 'pending'
+              ? `<button onclick="act('${w.id}','paid')">✅ Pagado</button>
+                 <button onclick="act('${w.id}','rejected')">❌ Rechazar</button>`
+              : w.status
+          }
+        </td>
+      </tr>`
+    )
+    .join('');
 
   res.send(`
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>Admin CashPlay</title>
-    </head>
-    <body style="background:#0f172a;color:#f8fafc;font-family:system-ui,sans-serif;padding:16px;max-width:600px;margin:auto">
-      <h2 style="margin-bottom:4px">💎 Panel Admin CashPlay</h2>
-      <p style="color:#94a3b8;margin-top:0">Usuarios totales: <strong>${totalUsers}</strong> • Firestore: <strong>${firestoreActive ? 'Activo' : 'Memoria'}</strong></p>
-      <h3 style="border-bottom:1px solid #334155;padding-bottom:8px">Solicitudes de Retiro (${state.withdrawals.length})</h3>
-      ${rows || '<p style="color:#94a3b8">Aún no hay solicitudes de retiro.</p>'}
+    <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>body{font-family:sans-serif;background:#0b1120;color:#fff;padding:16px}table{width:100%;border-collapse:collapse;font-size:13px}td,th{border:1px solid #253354;padding:8px}button{padding:6px 10px;margin:2px;cursor:pointer}</style>
+    </head><body>
+      <h2>💎 Panel Admin CashPlay</h2>
+      <p>Usuarios totales: <strong>${usersCount}</strong> | Firestore: <strong>${db ? 'Activo' : 'Memoria'}</strong></p>
+      <table><thead><tr><th>Usuario</th><th>Cuenta</th><th>Monto</th><th>IP</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>
       <script>
-        async function updateWd(id, action) {
-          if (!confirm(action === 'approve' ? '¿Confirmar que ya enviaste el pago?' : '¿Rechazar retiro y devolver las monedas al usuario?')) return;
-          const res = await fetch('/api/admin/withdraw-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ secret: '${POSTBACK_SECRET}', withdrawalId: id, action })
+        async function act(id, status){
+          await fetch('/api/admin/withdraw?secret=${encodeURIComponent(req.query.secret)}',{
+            method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status})
           });
-          if (res.ok) location.reload();
-          else alert('Error al actualizar');
+          location.reload();
         }
       </script>
-    </body>
-    </html>
+    </body></html>
   `);
 });
 
-app.get('*', (req, res) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.sendFile(path.join(__dirname, 'index.html'));
+app.post('/api/admin/withdraw', async (req, res) => {
+  if (req.query.secret !== POSTBACK_SECRET) return res.status(403).json({ error: 'FORBIDDEN' });
+  const { id, status } = req.body || {};
+  if (db && id) {
+    const wRef = db.collection('withdrawals').doc(id);
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(wRef);
+      if (!snap.exists) return;
+      const data = snap.data();
+      if (data.status !== 'pending') return;
+      tx.update(wRef, { status, updatedAt: new Date().toISOString() });
+      if (status === 'rejected') {
+        const uRef = db.collection('users').doc(data.userId);
+        const uSnap = await tx.get(uRef);
+        if (uSnap.exists) {
+          tx.update(uRef, { balance: Number(uSnap.data().balance || 0) + Number(data.amount || 0) });
+        }
+      }
+    });
+  }
+  res.json({ ok: true });
 });
 
-app.listen(PORT, () => {
-  console.log(`CashPlay Offerwall v2.5 ejecutándose en http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log('CashPlay server running on port ' + PORT));

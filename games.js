@@ -1,0 +1,440 @@
+// CashPlay Arcade Module v2.7 (100% Public Domain Mechanics - MIT/Original Implementation)
+// Juegos incluidos: 2048 Fusion, Memory Match, Neon Serpent
+// Cumple políticas de Monetag: activación voluntaria (opt-in) al subir de nivel + límite diario antifraude.
+
+(function () {
+  const DAILY_LIMIT = 10; // Máximo 10 recompensas de nivel por día
+  const REWARD_COINS = 5; // +5 monedas por nivel completado
+  const AD_WAIT_SECONDS = 5;
+
+  function getTodayKey() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function getDailyClaims() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('cp_game_claims') || '{}');
+      if (raw.date !== getTodayKey()) return 0;
+      return Number(raw.count || 0);
+    } catch {
+      return 0;
+    }
+  }
+
+  function incrementDailyClaims() {
+    const count = getDailyClaims() + 1;
+    localStorage.setItem('cp_game_claims', JSON.stringify({ date: getTodayKey(), count }));
+    updateQuotaBadge();
+    return count;
+  }
+
+  function updateQuotaBadge() {
+    const el = document.getElementById('cp-games-quota');
+    if (el) {
+      const used = getDailyClaims();
+      el.textContent = `${used}/${DAILY_LIMIT} níveis premiados hoje (+${REWARD_COINS} moedas/nível)`;
+    }
+  }
+
+  function showLevelUpModal(gameName, levelReached, onContinue) {
+    const used = getDailyClaims();
+    const canClaim = used < DAILY_LIMIT;
+
+    let overlay = document.getElementById('cp-levelup-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'cp-levelup-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(9,13,26,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+      document.body.appendChild(overlay);
+    }
+
+    overlay.innerHTML = `
+      <div style="background:#131b31;border:1px solid #263356;border-radius:16px;max-width:360px;width:100%;padding:20px;color:#fff;text-align:center;font-family:inherit;">
+        <div style="font-size:34px;margin-bottom:6px;">🏆</div>
+        <h3 style="margin:0 0 6px;font-size:19px;">Nível ${levelReached} Concluído!</h3>
+        <p style="margin:0 0 14px;font-size:13px;color:#9fb0d6;">${gameName}</p>
+        ${
+          canClaim
+            ? `<button id="cp-claim-level-btn" style="width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:10px;">
+                🎬 Ver Anúncio e Ganhar +${REWARD_COINS} Moedas
+               </button>`
+            : `<div style="padding:10px;border-radius:10px;background:#1e293b;color:#94a3b8;font-size:12px;margin-bottom:10px;">
+                Limite diário de ${DAILY_LIMIT} recompensas atingido. Continue jogando livremente!
+               </div>`
+        }
+        <button id="cp-skip-level-btn" style="width:100%;padding:10px;border:1px solid #334155;border-radius:10px;background:transparent;color:#cbd5e1;font-size:13px;cursor:pointer;">
+          Continuar sem recompensa
+        </button>
+      </div>
+    `;
+    overlay.style.display = 'flex';
+
+    document.getElementById('cp-skip-level-btn').onclick = () => {
+      overlay.style.display = 'none';
+      if (onContinue) onContinue();
+    };
+
+    const claimBtn = document.getElementById('cp-claim-level-btn');
+    if (claimBtn) {
+      claimBtn.onclick = () => {
+        const directLink = window.MONETAG_DIRECT_LINK || 'https://uplcm.com/4/12319298';
+        localStorage.setItem(
+          'cp_pending_game_reward',
+          JSON.stringify({
+            game: gameName,
+            level: levelReached,
+            openedAt: Date.now()
+          })
+        );
+        window.open(directLink, '_blank', 'noopener');
+        claimBtn.disabled = true;
+        claimBtn.textContent = 'Aguardando confirmação do anúncio...';
+      };
+    }
+  }
+
+  async function checkPendingGameReward() {
+    const raw = localStorage.getItem('cp_pending_game_reward');
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      const elapsed = (Date.now() - Number(data.openedAt || 0)) / 1000;
+      if (elapsed < AD_WAIT_SECONDS) return;
+
+      localStorage.removeItem('cp_pending_game_reward');
+      if (getDailyClaims() >= DAILY_LIMIT) return;
+
+      const userId = localStorage.getItem('cashplay_uid');
+      if (!userId) return;
+
+      const res = await fetch('/api/game-reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          game: data.game,
+          level: data.level
+        })
+      });
+      const json = await res.json();
+      if (json && json.ok) {
+        incrementDailyClaims();
+        if (typeof window.updateBalanceUI === 'function' && typeof json.balance === 'number') {
+          window.updateBalanceUI(json.balance);
+        }
+        const overlay = document.getElementById('cp-levelup-overlay');
+        if (overlay) overlay.style.display = 'none';
+        alert(`+${REWARD_COINS} moedas creditadas com sucesso!`);
+      }
+    } catch (e) {
+      console.error('Erro ao validar recompensa de jogo:', e);
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      checkPendingGameReward();
+    }
+  });
+
+  // JUEGO 1: 2048 FUSION (Licencia MIT)
+  function mount2048(container) {
+    let grid = Array(16).fill(0);
+    let score = 0;
+    let level = 1;
+    const targets = [64, 128, 256, 512, 1024, 2048];
+
+    function addTile() {
+      const empty = grid.map((v, i) => (v === 0 ? i : -1)).filter((i) => i !== -1);
+      if (!empty.length) return;
+      const idx = empty[Math.floor(Math.random() * empty.length)];
+      grid[idx] = Math.random() < 0.9 ? 2 : 4;
+    }
+
+    function slide(row) {
+      const arr = row.filter((v) => v);
+      for (let i = 0; i < arr.length - 1; i++) {
+        if (arr[i] === arr[i + 1]) {
+          arr[i] *= 2;
+          score += arr[i];
+          arr[i + 1] = 0;
+        }
+      }
+      const clean = arr.filter((v) => v);
+      while (clean.length < 4) clean.push(0);
+      return clean;
+    }
+
+    function move(dir) {
+      const prev = grid.join(',');
+      for (let r = 0; r < 4; r++) {
+        let line = [];
+        for (let c = 0; c < 4; c++) {
+          const idx = dir === 'L' || dir === 'R' ? r * 4 + c : c * 4 + r;
+          line.push(grid[idx]);
+        }
+        if (dir === 'R' || dir === 'D') line.reverse();
+        line = slide(line);
+        if (dir === 'R' || dir === 'D') line.reverse();
+        for (let c = 0; c < 4; c++) {
+          const idx = dir === 'L' || dir === 'R' ? r * 4 + c : c * 4 + r;
+          grid[idx] = line[c];
+        }
+      }
+      if (prev !== grid.join(',')) {
+        addTile();
+        render();
+        const maxTile = Math.max(...grid);
+        const goal = targets[Math.min(level - 1, targets.length - 1)];
+        if (maxTile >= goal) {
+          const completed = level;
+          level++;
+          showLevelUpModal('2048 Fusion', completed, render);
+        }
+      }
+    }
+
+    function render() {
+      const goal = targets[Math.min(level - 1, targets.length - 1)];
+      container.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;">
+          <span><strong>Nível ${level}</strong> (Meta: bloco ${goal})</span>
+          <span>Pontos: <strong>${score}</strong></span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#0f172a;padding:10px;border-radius:12px;">
+          ${grid
+            .map(
+              (v) => `
+            <div style="aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;background:${
+              v ? '#1e3a8a' : '#1e293b'
+            };color:${v ? '#fff' : 'transparent'};">
+              ${v || 0}
+            </div>`
+            )
+            .join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:190px;margin:12px auto 0;">
+          <div></div><button data-d="U" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▲</button><div></div>
+          <button data-d="L" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">◀</button>
+          <button data-d="D" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▼</button>
+          <button data-d="R" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▶</button>
+        </div>
+      `;
+      container.querySelectorAll('button[data-d]').forEach((b) => {
+        b.onclick = () => move(b.dataset.d);
+      });
+    }
+
+    addTile();
+    addTile();
+    render();
+  }
+
+  // JUEGO 2: MEMORY MATCH
+  function mountMemory(container) {
+    const icons = ['💎', '🚀', '⚡', '🎯', '🍀', '🔥', '👑', '🎲'];
+    let level = 1;
+    let cards = [];
+    let flipped = [];
+    let matched = [];
+    let lock = false;
+
+    function startLevel() {
+      const pairs = Math.min(4 + level, 8);
+      const selected = icons.slice(0, pairs);
+      cards = [...selected, ...selected].sort(() => Math.random() - 0.5);
+      flipped = [];
+      matched = [];
+      lock = false;
+      render();
+    }
+
+    function flipCard(idx) {
+      if (lock || flipped.includes(idx) || matched.includes(idx)) return;
+      flipped.push(idx);
+      render();
+      if (flipped.length === 2) {
+        lock = true;
+        const [a, b] = flipped;
+        if (cards[a] === cards[b]) {
+          matched.push(a, b);
+          flipped = [];
+          lock = false;
+          render();
+          if (matched.length === cards.length) {
+            const completed = level;
+            level++;
+            setTimeout(() => showLevelUpModal('Memory Match', completed, startLevel), 250);
+          }
+        } else {
+          setTimeout(() => {
+            flipped = [];
+            lock = false;
+            render();
+          }, 650);
+        }
+      }
+    }
+
+    function render() {
+      container.innerHTML = `
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:13px;">
+          <span><strong>Nível ${level}</strong></span>
+          <span>Pares: <strong>${matched.length / 2}/${cards.length / 2}</strong></span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+          ${cards
+            .map((ic, i) => {
+              const open = flipped.includes(i) || matched.includes(i);
+              return `<button data-i="${i}" style="aspect-ratio:1;border-radius:10px;border:1px solid #334155;background:${
+                open ? '#1d4ed8' : '#1e293b'
+              };font-size:24px;cursor:pointer;">${open ? ic : '❓'}</button>`;
+            })
+            .join('')}
+        </div>
+      `;
+      container.querySelectorAll('button[data-i]').forEach((b) => {
+        b.onclick = () => flipCard(Number(b.dataset.i));
+      });
+    }
+
+    startLevel();
+  }
+
+  // JUEGO 3: NEON SERPENT
+  let serpentTimer = null;
+  function mountSerpent(container) {
+    if (serpentTimer) clearInterval(serpentTimer);
+    const size = 14;
+    let snake = [{ x: 7, y: 7 }];
+    let dir = { x: 1, y: 0 };
+    let food = { x: 10, y: 7 };
+    let eaten = 0;
+    let level = 1;
+    const goalPerLevel = 5;
+
+    function placeFood() {
+      food = {
+        x: Math.floor(Math.random() * size),
+        y: Math.floor(Math.random() * size)
+      };
+    }
+
+    function step() {
+      const head = {
+        x: (snake[0].x + dir.x + size) % size,
+        y: (snake[0].y + dir.y + size) % size
+      };
+      if (snake.some((s) => s.x === head.x && s.y === head.y)) {
+        snake = [{ x: 7, y: 7 }];
+        eaten = 0;
+        render();
+        return;
+      }
+      snake.unshift(head);
+      if (head.x === food.x && head.y === food.y) {
+        eaten++;
+        placeFood();
+        if (eaten >= goalPerLevel) {
+          eaten = 0;
+          const completed = level;
+          level++;
+          clearInterval(serpentTimer);
+          showLevelUpModal('Neon Serpent', completed, () => {
+            serpentTimer = setInterval(step, 220);
+            render();
+          });
+          return;
+        }
+      } else {
+        snake.pop();
+      }
+      render();
+    }
+
+    function render() {
+      if (!document.getElementById('cp-serpent-grid')) {
+        container.innerHTML = `
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;">
+            <span id="cp-serp-lvl"></span>
+            <span id="cp-serp-pts"></span>
+          </div>
+          <div id="cp-serpent-grid" style="display:grid;grid-template-columns:repeat(${size},1fr);gap:2px;background:#0f172a;padding:8px;border-radius:12px;"></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:190px;margin:10px auto 0;">
+            <div></div><button data-sd="U" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▲</button><div></div>
+            <button data-sd="L" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">◀</button>
+            <button data-sd="D" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▼</button>
+            <button data-sd="R" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▶</button>
+          </div>
+        `;
+        container.querySelectorAll('button[data-sd]').forEach((b) => {
+          b.onclick = () => {
+            const d = b.dataset.sd;
+            if (d === 'U' && dir.y !== 1) dir = { x: 0, y: -1 };
+            if (d === 'D' && dir.y !== -1) dir = { x: 0, y: 1 };
+            if (d === 'L' && dir.x !== 1) dir = { x: -1, y: 0 };
+            if (d === 'R' && dir.x !== -1) dir = { x: 1, y: 0 };
+          };
+        });
+      }
+      document.getElementById('cp-serp-lvl').innerHTML = `<strong>Nível ${level}</strong>`;
+      document.getElementById('cp-serp-pts').innerHTML = `Energia: <strong>${eaten}/${goalPerLevel}</strong>`;
+      const gridEl = document.getElementById('cp-serpent-grid');
+      let cells = '';
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const isSnake = snake.some((s) => s.x === x && s.y === y);
+          const isFood = food.x === x && food.y === y;
+          cells += `<div style="aspect-ratio:1;border-radius:3px;background:${
+            isSnake ? '#22c55e' : isFood ? '#f59e0b' : '#1e293b'
+          };"></div>`;
+        }
+      }
+      gridEl.innerHTML = cells;
+    }
+
+    render();
+    serpentTimer = setInterval(step, 220);
+  }
+
+  window.initCashPlayArcade = function (rootId) {
+    const root = document.getElementById(rootId);
+    if (!root) return;
+
+    root.innerHTML = `
+      <div style="background:#131c31;border:1px solid #253354;border-radius:16px;padding:16px;margin-bottom:18px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+          <div>
+            <h3 style="margin:0;font-size:16px;">🕹️ CashPlay Arcade (Suba de Nível)</h3>
+            <p id="cp-games-quota" style="margin:4px 0 0;font-size:12px;color:#38bdf8;"></p>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="cp-tab-game" data-g="2048" style="padding:7px 11px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">2048</button>
+            <button class="cp-tab-game" data-g="memory" style="padding:7px 11px;border-radius:8px;border:none;background:#1e293b;color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;">Memory</button>
+            <button class="cp-tab-game" data-g="serpent" style="padding:7px 11px;border-radius:8px;border:none;background:#1e293b;color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;">Serpent</button>
+          </div>
+        </div>
+        <div id="cp-arcade-stage"></div>
+      </div>
+    `;
+
+    updateQuotaBadge();
+    const stage = document.getElementById('cp-arcade-stage');
+    const btns = root.querySelectorAll('.cp-tab-game');
+
+    function selectGame(name) {
+      if (serpentTimer) clearInterval(serpentTimer);
+      btns.forEach((b) => {
+        const active = b.dataset.g === name;
+        b.style.background = active ? '#2563eb' : '#1e293b';
+        b.style.color = active ? '#fff' : '#cbd5e1';
+      });
+      if (name === '2048') mount2048(stage);
+      if (name === 'memory') mountMemory(stage);
+      if (name === 'serpent') mountSerpent(stage);
+    }
+
+    btns.forEach((b) => (b.onclick = () => selectGame(b.dataset.g)));
+    selectGame('2048');
+  };
+})();

@@ -1,224 +1,336 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt">
 <head>
-  <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#0b1120" />
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CashPlay - Ganhe Dinheiro Real</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>CashPlay — Ganhe Recompensas Reais</title>
+  <meta name="theme-color" content="#0b1120" />
+  <link rel="manifest" href="/manifest.json" />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #0b1120; color: #f8fafc; padding-bottom: 80px; }
-    header { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; position: sticky; top: 0; z-index: 10; gap: 8px; }
-    .brand { display: flex; align-items: center; gap: 8px; }
-    .logo { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #06b6d4, #3b82f6); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-    .brand h1 { font-size: 15px; font-weight: 700; }
-    .brand span { font-size: 11px; color: #94a3b8; display: block; }
+    :root {
+      --bg: #0b1120;
+      --card: #131c31;
+      --card-2: #19243e;
+      --border: #253354;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --accent: #10b981;
+      --gold: #f59e0b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding-bottom: 84px;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(11, 17, 32, 0.94);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-logo {
+      width: 34px; height: 34px; border-radius: 10px;
+      background: linear-gradient(135deg, #2563eb, #38bdf8);
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .brand-title { font-weight: 800; font-size: 16px; line-height: 1.1; }
+    .brand-id { font-size: 11px; color: var(--muted); }
     .header-right { display: flex; align-items: center; gap: 8px; }
-    .lang-btn { background: #1e293b; border: 1px solid #334155; color: #f8fafc; padding: 6px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; cursor: pointer; }
-    .balance-pill { background: #1e293b; border: 1px solid #334155; padding: 6px 10px; border-radius: 999px; display: flex; align-items: center; gap: 7px; }
-    .coin-icon { width: 19px; height: 19px; background: #eab308; color: #0f172a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; }
-    .balance-text strong { display: block; font-size: 13px; color: #facc15; line-height: 1.1; }
-    .balance-text small { font-size: 10px; color: #38bdf8; }
-    .container { padding: 16px; max-width: 600px; margin: 0 auto; }
-    .hero { background: linear-gradient(135deg, #064e3b, #0f172a); border: 1px solid #059669; border-radius: 16px; padding: 16px; margin-bottom: 20px; }
-    .badge-active { display: inline-block; background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; margin-bottom: 8px; }
-    .hero h2 { font-size: 18px; margin-bottom: 6px; line-height: 1.3; }
-    .hero p { font-size: 13px; color: #94a3b8; }
-    .section-header { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 12px; }
-    .section-header h3 { font-size: 15px; font-weight: 700; }
-    .section-header span { font-size: 12px; color: #94a3b8; }
-    .card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
-    .card-left { display: flex; align-items: center; gap: 12px; }
-    .card-icon { width: 46px; height: 46px; border-radius: 12px; background: #0f172a; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
-    .card-info h4 { font-size: 15px; margin-bottom: 3px; }
-    .card-info .reward { color: #facc15; font-weight: 700; font-size: 13px; }
-    .card-info p { font-size: 12px; color: #94a3b8; margin-top: 2px; }
-    .tag { font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: #334155; color: #38bdf8; white-space: nowrap; }
-    .offers-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .offer-card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 14px; text-align: center; cursor: pointer; transition: transform 0.12s ease; }
-    .offer-card:active { transform: scale(0.98); }
-    .offer-card .icon { font-size: 30px; margin-bottom: 8px; }
-    .offer-card h4 { font-size: 14px; margin-bottom: 6px; }
-    .offer-card .coins { color: #34d399; font-weight: 700; font-size: 12px; margin-bottom: 4px; }
-    .offer-card small { color: #94a3b8; font-size: 11px; display: block; line-height: 1.3; }
-    .btn { background: #2563eb; color: #fff; border: none; padding: 12px 16px; border-radius: 10px; font-weight: 700; width: 100%; cursor: pointer; font-size: 14px; margin-top: 10px; }
-    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
-    input, select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #334155; background: #0f172a; color: #fff; margin-top: 8px; font-size: 14px; }
+    .lang-btn {
+      background: var(--card-2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .balance-pill {
+      background: var(--card-2); border: 1px solid var(--border); border-radius: 999px;
+      padding: 5px 12px; display: flex; align-items: center; gap: 8px;
+    }
+    .coin-icon {
+      width: 22px; height: 22px; border-radius: 50%; background: var(--gold);
+      color: #0b1120; font-weight: 900; font-size: 12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .bal-coins { font-weight: 800; font-size: 14px; color: #fbbf24; line-height: 1.1; }
+    .bal-usd { font-size: 10px; color: #38bdf8; }
+
+    main { max-width: 540px; margin: 0 auto; padding: 16px; }
     .tab-view { display: none; }
     .tab-view.active { display: block; }
-    nav { position: fixed; bottom: 0; left: 0; right: 0; background: #0f172a; border-top: 1px solid #1e293b; display: flex; justify-content: space-around; padding: 10px 0; z-index: 20; }
-    nav button { background: none; border: none; color: #94a3b8; font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
-    nav button.active { color: #38bdf8; font-weight: 700; }
-    .toast { position: fixed; bottom: 75px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #334155; color: #f8fafc; padding: 10px 18px; border-radius: 999px; font-size: 13px; display: none; z-index: 50; text-align: center; max-width: 90%; }
 
-    .security-lock { display: none; position: fixed; inset: 0; background: #0b1120; color: #f8fafc; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
-    .security-lock .shield { font-size: 52px; margin-bottom: 14px; }
-    .security-lock h2 { color: #f87171; font-size: 20px; margin-bottom: 10px; }
-    .security-lock p { color: #cbd5e1; font-size: 14px; max-width: 360px; line-height: 1.5; margin-bottom: 16px; }
-    .security-badge { background: rgba(248, 113, 113, 0.15); border: 1px solid rgba(248, 113, 113, 0.4); color: #fca5a5; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+    .hero-card {
+      background: linear-gradient(145deg, #0f292e, #12233d);
+      border: 1px solid #1e4b4f;
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .hero-badge {
+      display: inline-block; font-size: 11px; font-weight: 800; color: #34d399;
+      background: rgba(16, 185, 129, 0.14); padding: 4px 10px; border-radius: 999px; margin-bottom: 10px;
+    }
+    .hero-card h1 { margin: 0 0 6px; font-size: 19px; line-height: 1.3; }
+    .hero-sub { margin: 0 0 14px; font-size: 13px; color: #cbd5e1; }
+    .btn-primary {
+      width: 100%; padding: 13px 16px; border: none; border-radius: 12px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff;
+      font-weight: 800; font-size: 14px; cursor: pointer;
+    }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    .verify-box { background: rgba(250, 204, 21, 0.08); border: 1px solid rgba(250, 204, 21, 0.35); border-radius: 12px; padding: 12px; margin-top: 14px; font-size: 12px; color: #fde68a; line-height: 1.45; }
-    .legal-links { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 16px; padding-top: 12px; border-top: 1px solid #1e293b; font-size: 12px; }
-    .legal-links a { color: #38bdf8; text-decoration: none; font-weight: 600; cursor: pointer; }
-    .legal-modal { display: none; position: fixed; inset: 0; background: rgba(2, 6, 23, 0.88); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
-    .legal-content { background: #0f172a; border: 1px solid #334155; border-radius: 16px; max-width: 520px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 18px; }
-    .legal-content h3 { font-size: 16px; margin-bottom: 10px; color: #38bdf8; }
-    .legal-content p { font-size: 13px; color: #cbd5e1; line-height: 1.55; margin-bottom: 10px; }
+    .section-hdr {
+      display: flex; justify-content: space-between; align-items: center;
+      margin: 18px 0 10px;
+    }
+    .section-hdr h2 { margin: 0; font-size: 15px; }
+    .section-hdr span { font-size: 12px; color: var(--muted); }
+
+    .wall-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px; display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px; cursor: pointer;
+    }
+    .wall-left { display: flex; align-items: center; gap: 12px; }
+    .wall-ico {
+      width: 44px; height: 44px; border-radius: 12px; background: var(--card-2);
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+    }
+    .wall-title { font-weight: 800; font-size: 15px; }
+    .wall-reward { font-size: 12px; color: #fbbf24; font-weight: 700; }
+    .wall-desc { font-size: 12px; color: var(--muted); }
+    .tag {
+      font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 6px;
+      background: rgba(56, 189, 248, 0.15); color: #38bdf8;
+    }
+
+    .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+    .cat-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px; text-align: center; cursor: pointer;
+    }
+    .cat-ico { font-size: 26px; margin-bottom: 6px; }
+    .cat-title { font-weight: 800; font-size: 13px; margin-bottom: 2px; }
+    .cat-sub { font-size: 11px; color: #34d399; font-weight: 700; margin-bottom: 4px; }
+    .cat-txt { font-size: 11px; color: var(--muted); line-height: 1.3; }
+
+    .box {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px;
+    }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    input, select {
+      width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: 14px; margin-bottom: 12px;
+    }
+    .notice-box {
+      background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 12px; padding: 12px; font-size: 12px; color: #fde68a; line-height: 1.45; margin-top: 12px;
+    }
+    .legal-links { text-align: center; margin-top: 14px; font-size: 12px; }
+    .legal-links a { color: #38bdf8; text-decoration: none; margin: 0 8px; }
+
+    nav.bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+      background: #0d1526; border-top: 1px solid var(--border);
+      display: grid; grid-template-columns: repeat(4, 1fr); padding: 8px 0;
+    }
+    .nav-btn {
+      background: none; border: none; color: var(--muted); font-size: 11px; font-weight: 700;
+      display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer;
+    }
+    .nav-btn.active { color: #38bdf8; }
+    .nav-ico { font-size: 18px; }
+
+    #toast {
+      position: fixed; bottom: 78px; left: 50%; transform: translateX(-50%);
+      background: #1e293b; border: 1px solid #334155; color: #fff;
+      padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
+      z-index: 9999; display: none; max-width: 90%; text-align: center;
+    }
   </style>
 </head>
 <body>
-  <div class="security-lock" id="securityLock">
-    <div class="shield">🛡️</div>
-    <h2 id="secLockTitle">Acesso Bloqueado por Segurança</h2>
-    <p id="secLockDesc">Detectamos o uso de VPN, Proxy, Emulador ou dispositivo modificado/root. Desative-o para continuar usando o CashPlay.</p>
-    <span class="security-badge" id="secLockCode">ANTI-FRAUD SHIELD ACTIVE</span>
-  </div>
-
-  <div class="legal-modal" id="legalModal" onclick="if(event.target===this) closeLegal()">
-    <div class="legal-content">
-      <h3 id="legalModalTitle">Termos de Uso</h3>
-      <div id="legalModalBody"></div>
-      <button class="btn" onclick="closeLegal()" data-i18n="closeBtn">Fechar</button>
-    </div>
-  </div>
-
   <header>
     <div class="brand">
-      <div class="logo">💎</div>
+      <div class="brand-logo">💎</div>
       <div>
-        <h1>CashPlay</h1>
-        <span id="userIdLabel">ID: ...</span>
+        <div class="brand-title">CashPlay</div>
+        <div class="brand-id" id="hdr-uid">ID: ...</div>
       </div>
     </div>
     <div class="header-right">
-      <button class="lang-btn" id="langToggle" onclick="toggleLang()">🇧🇷 PT</button>
+      <button class="lang-btn" id="lang-toggle">🇧🇷 PT</button>
       <div class="balance-pill">
         <div class="coin-icon">C</div>
-        <div class="balance-text">
-          <strong id="coinsBalance">0</strong>
-          <small id="usdBalance">$0.00</small>
+        <div>
+          <div class="bal-coins" id="hdr-coins">0</div>
+          <div class="bal-usd" id="hdr-usd">$0.00</div>
         </div>
       </div>
     </div>
   </header>
 
-  <div class="container">
-    <div id="tab-ganar" class="tab-view active">
-      <div class="hero">
-        <div class="badge-active" data-i18n="heroBadge">🔥 RECOMPENSAS ATIVAS</div>
-        <h2 data-i18n="heroTitle">Instale jogos e apps, cumpra missões e saque dinheiro real</h2>
-        <p data-i18n="heroSub">1.000 moedas = $1.00 USD / R$ 5,00</p>
-        <button class="btn" id="dailyBonusBtn" onclick="claimDailyBonus()" data-i18n="dailyBtn">🎬 Bônus Diário (+20 moedas • Ver Anúncio)</button>
+  <main>
+    <!-- PESTAÑA GANHAR -->
+    <section id="tab-earn" class="tab-view active">
+      <div class="hero-card">
+        <div class="hero-badge" data-i18n="heroBadge">🔥 RECOMPENSAS ATIVAS</div>
+        <h1 data-i18n="heroTitle">Instale jogos e apps, cumpra missões e saque dinheiro real</h1>
+        <p class="hero-sub">1.000 moedas = $1.00 USD / R$ 5,00</p>
+        <button class="btn-primary" id="btn-daily-bonus" data-i18n="dailyBtn">🎬 Bônus Diário (+20 moedas • Ver Anúncio)</button>
       </div>
 
-      <div class="section-header">
-        <h3 data-i18n="wallsTitle">Murais de Ofertas (Offerwalls)</h3>
+      <!-- SECCIÓN ARCADE LEGAL (2048, MEMORY, SERPENT) -->
+      <div id="cashplay-arcade-root"></div>
+
+      <div class="section-hdr">
+        <h2 data-i18n="wallsTitle">Murais de Ofertas (Offerwalls)</h2>
         <span data-i18n="tapOpen">Toque para abrir</span>
       </div>
 
-      <div class="card" onclick="openOfferwall('TimeWall')">
-        <div class="card-left">
-          <div class="card-icon">🧱</div>
-          <div class="card-info">
-            <h4>TimeWall</h4>
-            <div class="reward" data-i18n="twReward">+1.200 moedas</div>
-            <p data-i18n="twSub">Tarefas, Cliques e Pesquisas</p>
+      <div class="wall-card" onclick="openTimeWall()">
+        <div class="wall-left">
+          <div class="wall-ico">🧱</div>
+          <div>
+            <div class="wall-title">TimeWall</div>
+            <div class="wall-reward">+1.200 moedas</div>
+            <div class="wall-desc" data-i18n="twDesc">Tarefas, Cliques e Pesquisas</div>
           </div>
         </div>
         <span class="tag">POPULAR</span>
       </div>
 
-      <div class="card" onclick="openOfferwall('Torox')">
-        <div class="card-left">
-          <div class="card-icon">🎯</div>
-          <div class="card-info">
-            <h4>OfferToro / Torox</h4>
-            <div class="reward" data-i18n="txReward">+2.500 moedas</div>
-            <p data-i18n="txSub">Jogos e Aplicativos</p>
+      <div class="wall-card" onclick="openTimeWall()">
+        <div class="wall-left">
+          <div class="wall-ico">🎯</div>
+          <div>
+            <div class="wall-title">OfferToro / Torox</div>
+            <div class="wall-reward">+2.500 moedas</div>
+            <div class="wall-desc" data-i18n="otDesc">Jogos e Aplicativos</div>
           </div>
         </div>
-        <span class="tag" data-i18n="recTag">RECOMENDADO</span>
+        <span class="tag">RECOMENDADO</span>
       </div>
 
-      <div class="section-header">
-        <h3 data-i18n="featuredTitle">Acesso Direto por Categoria</h3>
-        <span data-i18n="featuredCount">4 categorias</span>
+      <div class="section-hdr">
+        <h2 data-i18n="catTitle">Acesso Direto por Categoria</h2>
+        <span>4 categorias ativas</span>
       </div>
-      <div class="offers-grid" id="offersGrid"></div>
-    </div>
 
-    <div id="tab-invitar" class="tab-view">
-      <div class="hero">
-        <div class="badge-active" data-i18n="refBadge">🤝 PROGRAMA DE INDICAÇÃO</div>
-        <h2 data-i18n="refTitle">Ganhe 10% vitalício por cada amigo convidado</h2>
-        <p data-i18n="refSub">Compartilhe seu link e receba moedas automaticamente quando completarem ofertas.</p>
-        <input type="text" id="refLink" readonly />
-        <button class="btn" onclick="copyRefLink()" data-i18n="copyRefBtn">Copiar link de convite</button>
+      <div class="cat-grid">
+        <div class="cat-card" onclick="openTimeWall()">
+          <div class="cat-ico">🎮</div>
+          <div class="cat-title" data-i18n="c1t">Jogos e Apps</div>
+          <div class="cat-sub">Abrir no TimeWall</div>
+          <div class="cat-txt">Instale jogos verificados e receba moedas automáticas</div>
+        </div>
+        <div class="cat-card" onclick="openTimeWall()">
+          <div class="cat-ico">📋</div>
+          <div class="cat-title" data-i18n="c2t">Pesquisas Pagas</div>
+          <div class="cat-sub">Abrir no TimeWall</div>
+          <div class="cat-txt">Responda pesquisas rápidas e ganhe na hora</div>
+        </div>
+        <div class="cat-card" onclick="openTimeWall()">
+          <div class="cat-ico">⚡</div>
+          <div class="cat-title" data-i18n="c3t">Tarefas Rápidas</div>
+          <div class="cat-sub">Abrir no TimeWall</div>
+          <div class="cat-txt">Microtarefas verificadas com crédito instantâneo</div>
+        </div>
+        <div class="cat-card" onclick="openTimeWall()">
+          <div class="cat-ico">🖱️</div>
+          <div class="cat-title" data-i18n="c4t">Cliques e Vídeos</div>
+          <div class="cat-sub">Abrir no TimeWall</div>
+          <div class="cat-txt">Visite sites patrocinados e acumule pontos</div>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div id="tab-retirar" class="tab-view">
-      <div class="hero">
-        <div class="badge-active" data-i18n="wdBadge">💸 SAQUES RÁPIDOS</div>
-        <h2 data-i18n="wdTitle">Troque suas moedas por dinheiro real</h2>
-        <p data-i18n="wdSub">Saque mínimo: 2.000 moedas ($2.00 USD / R$ 10,00)</p>
-        <select id="withdrawMethod">
+    <!-- PESTAÑA CONVIDAR -->
+    <section id="tab-invite" class="tab-view">
+      <div class="box">
+        <h2 style="margin-top:0;">🤝 Convide Amigos (10% Vitalício)</h2>
+        <p style="font-size:13px;color:var(--muted);">Ganhe 10% de todas as moedas que seus convidados conquistarem nos murais de ofertas.</p>
+        <label>Seu link exclusivo de indicação:</label>
+        <input type="text" id="ref-link-input" readonly />
+        <button class="btn-primary" onclick="copyRefLink()">📋 Copiar Link de Convite</button>
+      </div>
+    </section>
+
+    <!-- PESTAÑA SACAR -->
+    <section id="tab-withdraw" class="tab-view">
+      <div class="hero-card">
+        <div class="hero-badge">💸 SAQUES RÁPIDOS</div>
+        <h1>Troque suas moedas por dinheiro real</h1>
+        <p class="hero-sub">Saque mínimo: 2.000 moedas ($2.00 USD / R$ 10,00)</p>
+
+        <label>Método de Recebimento</label>
+        <select id="wd-method">
           <option value="PIX">PIX (Brasil)</option>
           <option value="PayPal">PayPal (USD)</option>
-          <option value="Binance USDT">Binance Pay (USDT)</option>
+          <option value="USDT">Binance / USDT (TRC20)</option>
         </select>
-        <input type="text" id="withdrawAccount" placeholder="Sua chave PIX, e-mail PayPal ou ID Binance" />
-        <input type="number" id="withdrawAmount" value="2000" min="2000" step="500" />
-        <button class="btn" onclick="requestWithdraw()" data-i18n="wdBtn">Solicitar Saque</button>
 
-        <div class="verify-box">
-          <strong>🔒 <span data-i18n="verifyTitle">Verificação de Identidade e Antifraude:</span></strong>
-          <span data-i18n="verifyDesc">Todos os saques (PIX, PayPal ou USDT) passam por verificação manual de identidade e auditoria de tráfego em até 24-48h antes do pagamento. Contas com VPN, emuladores ou múltiplos cadastros serão bloqueadas.</span>
+        <label>Chave PIX, E-mail PayPal ou Carteira USDT</label>
+        <input type="text" id="wd-account" placeholder="Digite sua chave ou carteira..." />
+
+        <label>Quantidade de Moedas (mín. 2000)</label>
+        <input type="number" id="wd-amount" value="2000" min="2000" />
+
+        <button class="btn-primary" id="btn-withdraw" onclick="submitWithdraw()">Solicitar Saque</button>
+
+        <div class="notice-box">
+          🔒 <strong>Verificação de Identidade e Antifraude:</strong> Todos os saques (PIX, PayPal ou USDT) passam por verificação manual de identidade e auditoria de tráfego em até 24-48h antes do pagamento. Contas com VPN, emuladores ou múltiplos cadastros serão bloqueadas.
         </div>
 
         <div class="legal-links">
-          <a onclick="openLegal('terms')" data-i18n="termsLink">Termos de Uso</a>
-          <a onclick="openLegal('privacy')" data-i18n="privacyLink">Política de Privacidade</a>
+          <a href="#" onclick="showLegal('terms');return false;">Termos de Uso</a>
+          <a href="#" onclick="showLegal('privacy');return false;">Política de Privacidade</a>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div id="tab-perfil" class="tab-view">
-      <div class="hero">
-        <div class="badge-active" data-i18n="profBadge">👤 MINHA CONTA</div>
-        <h2 id="profileUserId">ID: ...</h2>
-        <p id="cloudStatus">Sincronizando...</p>
-
-        <div class="verify-box">
-          <strong>🛡️ <span data-i18n="profVerifyTitle">Proteção da Conta:</span></strong>
-          <span data-i18n="profVerifyDesc">Apenas 1 conta por dispositivo e IP residencial real. A verificação de titularidade PIX/PayPal é obrigatória no primeiro saque.</span>
-        </div>
-
-        <div class="legal-links">
-          <a onclick="openLegal('terms')" data-i18n="termsLink">Termos de Uso</a>
-          <a onclick="openLegal('privacy')" data-i18n="privacyLink">Política de Privacidade</a>
-        </div>
+    <!-- PESTAÑA PERFIL -->
+    <section id="tab-profile" class="tab-view">
+      <div class="box">
+        <h2 style="margin-top:0;">👤 Meu Perfil & Segurança</h2>
+        <p style="font-size:13px;"><strong>ID da Conta:</strong> <span id="prof-uid">-</span></p>
+        <p style="font-size:13px;"><strong>Saldo Atual:</strong> <span id="prof-bal">0</span> moedas</p>
+        <p style="font-size:13px;color:#34d399;">🛡️ Escudo Antifraude Ativo (Dispositivo Verificado)</p>
       </div>
-      <div class="section-header">
-        <h3 data-i18n="histTitle">Histórico recente</h3>
-      </div>
-      <div id="historyList"></div>
-    </div>
-  </div>
+    </section>
+  </main>
 
-  <div class="toast" id="toast"></div>
-
-  <nav>
-    <button class="active" onclick="switchTab('ganar', this)">🎮<span data-i18n="navEarn">Ganhar</span></button>
-    <button onclick="switchTab('invitar', this)">🤝<span data-i18n="navInvite">Convidar</span></button>
-    <button onclick="switchTab('retirar', this)">💸<span data-i18n="navWithdraw">Sacar</span></button>
-    <button onclick="switchTab('perfil', this)">👤<span data-i18n="navProfile">Perfil</span></button>
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="switchTab('earn', this)"><span class="nav-ico">🎮</span><span>Ganhar</span></button>
+    <button class="nav-btn" onclick="switchTab('invite', this)"><span class="nav-ico">🤝</span><span>Convidar</span></button>
+    <button class="nav-btn" onclick="switchTab('withdraw', this)"><span class="nav-ico">💸</span><span>Sacar</span></button>
+    <button class="nav-btn" onclick="switchTab('profile', this)"><span class="nav-ico">👤</span><span>Perfil</span></button>
   </nav>
 
+  <div id="toast"></div>
+
   <script>
-    function getOrCreateUserId() {
+    window.MONETAG_DIRECT_LINK = 'https://uplcm.com/4/12319298';
+    const TIMEWALL_OID = '1be50b5db408a909';
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      clearTimeout(window._tTimer);
+      window._tTimer = setTimeout(() => { t.style.display = 'none'; }, 3200);
+    }
+
+    function getUserId() {
       let uid = localStorage.getItem('cashplay_uid');
       if (!uid) {
         uid = 'usr_' + Math.random().toString(36).substring(2, 9);
@@ -227,383 +339,167 @@
       return uid;
     }
 
-    const USER_ID = getOrCreateUserId();
-    const TIMEWALL_OID = '1be50b5db408a909';
-    const MONETAG_DIRECT_LINK = 'https://uplcm.com/4/12319298';
-    const DAILY_BONUS_AMOUNT = 20;
+    window.updateBalanceUI = function (coins) {
+      const c = Number(coins || 0);
+      document.getElementById('hdr-coins').textContent = c;
+      document.getElementById('hdr-usd').textContent = '$' + (c / 1000).toFixed(2);
+      document.getElementById('prof-bal').textContent = c;
+    };
 
-    let currentLang = localStorage.getItem('cashplay_lang') ||
-      ((navigator.language || '').toLowerCase().startsWith('pt') ? 'pt' : 'es');
+    window.loadUser = async function () {
+      const uid = getUserId();
+      document.getElementById('hdr-uid').textContent = 'ID: ' + uid;
+      document.getElementById('prof-uid').textContent = uid;
+      document.getElementById('ref-link-input').value = location.origin + '/?ref=' + uid;
 
-    const I18N = {
-      pt: {
-        langBtn: '🇧🇷 PT',
-        heroBadge: '🔥 RECOMPENSAS ATIVAS',
-        heroTitle: 'Instale jogos e apps, cumpra missões e saque dinheiro real',
-        heroSub: '1.000 moedas = $1.00 USD / R$ 5,00',
-        dailyBtn: '🎬 Bônus Diário (+20 moedas • Ver Anúncio)',
-        dailyWait: '⏳ Validando anúncio ({s}s)...',
-        wallsTitle: 'Murais de Ofertas (Offerwalls)',
-        tapOpen: 'Toque para abrir',
-        twReward: '+1.200 moedas',
-        twSub: 'Tarefas, Cliques e Pesquisas',
-        txReward: '+2.500 moedas',
-        txSub: 'Jogos e Aplicativos',
-        recTag: 'RECOMENDADO',
-        featuredTitle: 'Acesso Direto por Categoria',
-        featuredCount: '4 categorias ativas',
-        refBadge: '🤝 PROGRAMA DE INDICAÇÃO',
-        refTitle: 'Ganhe 10% vitalício por cada amigo convidado',
-        refSub: 'Compartilhe seu link e receba moedas automaticamente quando completarem ofertas.',
-        copyRefBtn: 'Copiar link de convite',
-        wdBadge: '💸 SAQUES RÁPIDOS',
-        wdTitle: 'Troque suas moedas por dinheiro real',
-        wdSub: 'Saque mínimo: 2.000 moedas ($2.00 USD / R$ 10,00)',
-        wdPlaceholder: 'Sua chave PIX, e-mail PayPal ou ID Binance',
-        wdBtn: 'Solicitar Saque',
-        verifyTitle: 'Verificação de Identidade e Antifraude:',
-        verifyDesc: 'Todos os saques (PIX, PayPal ou USDT) passam por verificação manual de identidade e auditoria de tráfego em até 24-48h antes do pagamento. Contas com VPN, emuladores ou múltiplos cadastros serão bloqueadas.',
-        profVerifyTitle: 'Proteção da Conta:',
-        profVerifyDesc: 'Apenas 1 conta por dispositivo e IP residencial real. A verificação de titularidade PIX/PayPal é obrigatória no primeiro saque.',
-        termsLink: 'Termos de Uso',
-        privacyLink: 'Política de Privacidade',
-        closeBtn: 'Fechar',
-        profBadge: '👤 MINHA CONTA',
-        histTitle: 'Histórico recente',
-        navEarn: 'Ganhar',
-        navInvite: 'Convidar',
-        navWithdraw: 'Sacar',
-        navProfile: 'Perfil',
-        cloudOk: '✅ Saldo protegido na nuvem',
-        cloudTmp: '⚠️ Modo local ativo',
-        toastOpeningTw: 'Abrindo mural oficial TimeWall...',
-        toastToroxSoon: 'Torox em ativação final. Use o TimeWall abaixo para ganhar agora!',
-        toastRefCopied: 'Link de convite copiado!',
-        toastWdSent: 'Solicitação de saque enviada para verificação!',
-        toastWdErr: 'Erro ao solicitar saque',
-        toastConnErr: 'Erro ao conectar com o servidor',
-        toastAdViewing: 'Anúncio aberto! Feche o anúncio após 5s para receber suas +20 moedas...',
-        secTitle: 'Acesso Bloqueado por Segurança',
-        secEmu: 'Emuladores, navegadores automatizados ou dispositivos modificados/root não são permitidos no CashPlay.',
-        secVpn: 'VPN ou Proxy detectado (inconsistência de fuso horário/IP). Desative sua VPN para continuar.',
-        termsHtml: '<p><strong>1. Elegibilidade:</strong> O CashPlay permite apenas uma conta por pessoa, dispositivo e conexão residencial.</p><p><strong>2. Atividades Proibidas:</strong> É estritamente proibido o uso de VPN, Proxy, emuladores (BlueStacks, Nox, etc.), dispositivos com root ou scripts automáticos. Qualquer tentativa resulta em bloqueio imediato e perda do saldo.</p><p><strong>3. Saques e Verificação:</strong> Todos os pedidos de saque via PIX, PayPal ou USDT passam por revisão antifraude e verificação de titularidade em até 24-48 horas úteis.</p>',
-        privacyHtml: '<p><strong>1. Dados Coletados:</strong> Coletamos apenas seu identificador anônimo de usuário, endereço IP, fuso horário e dados de dispositivo para prevenção contra fraudes e validação de ofertas concluídas junto aos parceiros (TimeWall, Monetag, etc.).</p><p><strong>2. Dados de Pagamento:</strong> Sua chave PIX, e-mail PayPal ou ID Binance é utilizada exclusivamente para processar o pagamento solicitado e validar a titularidade da conta.</p><p><strong>3. Compartilhamento:</strong> Nunca vendemos seus dados pessoais a terceiros.</p>',
-        categories: [
-          { icon: '🎮', title: 'Jogos e Apps', badge: 'Abrir no TimeWall', sub: 'Instale jogos verificados e receba moedas automáticas' },
-          { icon: '📋', title: 'Pesquisas Pagas', badge: 'Abrir no TimeWall', sub: 'Responda pesquisas rápidas e ganhe na hora' },
-          { icon: '⚡', title: 'Tarefas Rápidas', badge: 'Abrir no TimeWall', sub: 'Microtarefas verificadas com crédito garantido' },
-          { icon: '🖱️', title: 'Cliques e Vídeos', badge: 'Abrir no TimeWall', sub: 'Visite sites patrocinados e acumule pontos' }
-        ]
-      },
-      es: {
-        langBtn: '🇪🇸 ES',
-        heroBadge: '🔥 RECOMPENSAS ACTIVAS',
-        heroTitle: 'Instala juegos y apps, cumple misiones y cobra dinero real',
-        heroSub: '1,000 monedas = $1.00 USD / R$ 5,00',
-        dailyBtn: '🎬 Bono Diario (+20 monedas • Ver Anuncio)',
-        dailyWait: '⏳ Validando anuncio ({s}s)...',
-        wallsTitle: 'Muros de Ofertas (Offerwalls)',
-        tapOpen: 'Toca para abrir',
-        twReward: '+1,200 monedas',
-        twSub: 'Tareas, Clics y Encuestas',
-        txReward: '+2,500 monedas',
-        txSub: 'Juegos y Aplicaciones',
-        recTag: 'RECOMENDADO',
-        featuredTitle: 'Acceso Directo por Categoría',
-        featuredCount: '4 categorías activas',
-        refBadge: '🤝 PROGRAMA DE REFERIDOS',
-        refTitle: 'Gana el 10% de por vida por cada amigo invitado',
-        refSub: 'Comparte tu enlace y recibe monedas automáticamente cuando completen ofertas.',
-        copyRefBtn: 'Copiar enlace de invitación',
-        wdBadge: '💸 RETIROS RÁPIDOS',
-        wdTitle: 'Canjea tus monedas por dinero real',
-        wdSub: 'Mínimo de retiro: 2,000 monedas ($2.00 USD / R$ 10,00)',
-        wdPlaceholder: 'Tu llave PIX, correo PayPal o ID Binance',
-        wdBtn: 'Solicitar Retiro',
-        verifyTitle: 'Verificación de Identidad y Antifraude:',
-        verifyDesc: 'Todos los retiros (PIX, PayPal o USDT) pasan por verificación manual de identidad y auditoría de tráfico en 24-48h antes del pago. Cuentas con VPN, emuladores o múltiples registros serán bloqueadas.',
-        profVerifyTitle: 'Protección de la Cuenta:',
-        profVerifyDesc: 'Solo 1 cuenta por dispositivo e IP residencial real. La verificación de titularidad PIX/PayPal es obligatoria en el primer retiro.',
-        termsLink: 'Términos de Uso',
-        privacyLink: 'Política de Privacidad',
-        closeBtn: 'Cerrar',
-        profBadge: '👤 MI CUENTA',
-        histTitle: 'Historial reciente',
-        navEarn: 'Ganar',
-        navInvite: 'Invitar',
-        navWithdraw: 'Retirar',
-        navProfile: 'Perfil',
-        cloudOk: '✅ Saldo respaldado en la nube',
-        cloudTmp: '⚠️ Modo temporal activo',
-        toastOpeningTw: 'Abriendo muro oficial TimeWall...',
-        toastToroxSoon: 'Torox en activación final. ¡Usa TimeWall abajo para ganar ahora!',
-        toastRefCopied: 'Enlace de invitación copiado',
-        toastWdSent: 'Solicitud de retiro enviada a verificación',
-        toastWdErr: 'Error al solicitar retiro',
-        toastConnErr: 'Error al conectar con el servidor',
-        toastAdViewing: '¡Anuncio abierto! Ciérralo tras 5s para recibir tus +20 monedas...',
-        secTitle: 'Acceso Bloqueado por Seguridad',
-        secEmu: 'No se permiten emuladores, navegadores automatizados ni dispositivos modificados/rooteados en CashPlay.',
-        secVpn: 'VPN o Proxy detectado (inconsistencia de zona horaria/IP). Desactiva tu VPN para continuar.',
-        termsHtml: '<p><strong>1. Elegibilidad:</strong> CashPlay permite únicamente una cuenta por persona, dispositivo y conexión residencial.</p><p><strong>2. Actividades Prohibidas:</strong> Está estrictamente prohibido el uso de VPN, Proxy, emuladores (BlueStacks, Nox, etc.), dispositivos rooteados o scripts automáticos. Cualquier intento conlleva el bloqueo inmediato y la pérdida del saldo.</p><p><strong>3. Retiros y Verificación:</strong> Todas las solicitudes de retiro vía PIX, PayPal o USDT pasan por revisión antifraude y verificación de titularidad en un plazo de 24-48 horas hábiles.</p>',
-        privacyHtml: '<p><strong>1. Datos Recopilados:</strong> Recopilamos únicamente tu identificador anónimo de usuario, dirección IP, zona horaria y datos del dispositivo para prevención de fraude y validación de ofertas completadas con nuestros socios (TimeWall, Monetag, etc.).</p><p><strong>2. Datos de Pago:</strong> Tu llave PIX, correo PayPal o ID Binance se utiliza exclusivamente para procesar el pago solicitado y validar la titularidad de la cuenta.</p><p><strong>3. Privacidad:</strong> Nunca vendemos tus datos personales a terceros.</p>',
-        categories: [
-          { icon: '🎮', title: 'Juegos y Apps', badge: 'Abrir en TimeWall', sub: 'Instala juegos verificados y recibe monedas automáticas' },
-          { icon: '📋', title: 'Encuestas Pagas', badge: 'Abrir en TimeWall', sub: 'Responde encuestas rápidas y gana al instante' },
-          { icon: '⚡', title: 'Tareas Rápidas', badge: 'Abrir en TimeWall', sub: 'Microtareas verificadas con crédito garantizado' },
-          { icon: '🖱️', title: 'Clics y Videos', badge: 'Abrir en TimeWall', sub: 'Visita sitios patrocinados y acumula puntos' }
-        ]
+      const ref = new URLSearchParams(location.search).get('ref');
+      try {
+        const res = await fetch('/api/user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: uid, ref: ref || null })
+        });
+        const data = await res.json();
+        if (data && typeof data.balance === 'number') {
+          window.updateBalanceUI(data.balance);
+        }
+      } catch (e) {
+        console.error(e);
       }
     };
 
-    async function runAntiFraudShield() {
-      const t = I18N[currentLang];
-      const lockEl = document.getElementById('securityLock');
-      const titleEl = document.getElementById('secLockTitle');
-      const descEl = document.getElementById('secLockDesc');
-      const codeEl = document.getElementById('secLockCode');
+    function openTimeWall() {
+      const uid = getUserId();
+      const url = `https://timewall.io/users/login?oid=${TIMEWALL_OID}&uid=${encodeURIComponent(uid)}`;
+      window.open(url, '_blank', 'noopener');
+    }
 
-      const triggerLock = (reasonText, codeText) => {
-        titleEl.textContent = t.secTitle;
-        descEl.textContent = reasonText;
-        codeEl.textContent = codeText;
-        lockEl.style.display = 'flex';
-      };
-
-      const ua = (navigator.userAgent || '').toLowerCase();
-      const isEmulatorOrRoot =
-        navigator.webdriver === true ||
-        /bluestacks|nox|memu|ldplayer|genymotion|android sdk built for x86|andyos|droid4x/.test(ua) ||
-        (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 1);
-
-      if (isEmulatorOrRoot) {
-        triggerLock(t.secEmu, 'BLOCKED: EMULATOR / MODIFIED DEVICE');
-        return false;
+    // Bono diario (+20 moedas) con Monetag Direct Link
+    document.getElementById('btn-daily-bonus').onclick = function () {
+      const today = new Date().toISOString().slice(0, 10);
+      if (localStorage.getItem('cp_daily_claimed') === today) {
+        toast('Você já resgatou o bônus diário hoje!');
+        return;
       }
+      localStorage.setItem('cp_daily_pending', JSON.stringify({ date: today, ts: Date.now() }));
+      window.open(window.MONETAG_DIRECT_LINK, '_blank', 'noopener');
+      toast('Assista ao anúncio por alguns segundos e volte para receber +20 moedas!');
+    };
 
+    async function checkDailyReturn() {
+      const raw = localStorage.getItem('cp_daily_pending');
+      if (!raw) return;
       try {
-        const res = await fetch('https://ipapi.co/json/');
-        const ipData = await res.json();
-        const deviceTZ = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-        if (ipData && ipData.timezone && deviceTZ) {
-          const ipRegion = ipData.timezone.split('/')[0];
-          const devRegion = deviceTZ.split('/')[0];
-          if (ipRegion && devRegion && ipRegion !== devRegion) {
-            triggerLock(t.secVpn, 'BLOCKED: VPN / PROXY DETECTED');
-            return false;
-          }
-        }
-      } catch (e) {}
-
-      return true;
-    }
-
-    function openLegal(type) {
-      const t = I18N[currentLang];
-      document.getElementById('legalModalTitle').textContent = type === 'terms' ? t.termsLink : t.privacyLink;
-      document.getElementById('legalModalBody').innerHTML = type === 'terms' ? t.termsHtml : t.privacyHtml;
-      document.getElementById('legalModal').style.display = 'flex';
-    }
-
-    function closeLegal() {
-      document.getElementById('legalModal').style.display = 'none';
-    }
-
-    function applyLanguage() {
-      const t = I18N[currentLang];
-      document.documentElement.lang = currentLang === 'pt' ? 'pt-BR' : 'es';
-      document.getElementById('langToggle').textContent = t.langBtn;
-      document.getElementById('withdrawAccount').placeholder = t.wdPlaceholder;
-
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if (t[key]) el.textContent = t[key];
-      });
-
-      document.getElementById('offersGrid').innerHTML = t.categories.map(c => `
-        <div class="offer-card" onclick="openOfferwall('TimeWall')">
-          <div class="icon">${c.icon}</div>
-          <h4>${c.title}</h4>
-          <div class="coins">${c.badge}</div>
-          <small>${c.sub}</small>
-        </div>
-      `).join('');
-    }
-
-    function toggleLang() {
-      currentLang = currentLang === 'pt' ? 'es' : 'pt';
-      localStorage.setItem('cashplay_lang', currentLang);
-      applyLanguage();
-    }
-
-    function showToast(msg) {
-      const el = document.getElementById('toast');
-      el.textContent = msg;
-      el.style.display = 'block';
-      setTimeout(() => { el.style.display = 'none'; }, 4000);
-    }
-
-    function switchTab(tab, btn) {
-      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
-      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-      document.getElementById('tab-' + tab).classList.add('active');
-      btn.classList.add('active');
-    }
-
-    async function loadDashboard() {
-      const t = I18N[currentLang];
-      try {
-        const res = await fetch('/api/dashboard?userId=' + encodeURIComponent(USER_ID) + '&t=' + Date.now());
-        const data = await res.json();
-        if (!data.ok) throw new Error('Respuesta inválida');
-
-        document.getElementById('userIdLabel').textContent = 'ID: ' + data.user.id;
-        document.getElementById('profileUserId').textContent = 'ID: ' + data.user.id;
-        document.getElementById('coinsBalance').textContent = data.user.coins.toLocaleString();
-        document.getElementById('usdBalance').textContent = '$' + (data.user.coins / 1000).toFixed(2);
-        document.getElementById('refLink').value = window.location.origin + '/?ref=' + data.user.id;
-        document.getElementById('cloudStatus').textContent = data.firestoreActive ? t.cloudOk : t.cloudTmp;
-
-        const history = data.user.history || [];
-        document.getElementById('historyList').innerHTML = history.map(h => `
-          <div class="card">
-            <div class="card-info">
-              <h4>${h.title}</h4>
-              <p>${new Date(h.date).toLocaleString()}</p>
-            </div>
-            <span class="tag">${h.amount > 0 ? '+' : ''}${h.amount}</span>
-          </div>
-        `).join('');
-      } catch (err) {
-        showToast(t.toastConnErr);
-      }
-    }
-
-    let pendingAdStart = Number(localStorage.getItem('cashplay_ad_start') || 0) || null;
-    let pendingAdInterval = null;
-    let isFinalizingBonus = false;
-
-    async function finalizeDailyBonus() {
-      const btn = document.getElementById('dailyBonusBtn');
-      if (!pendingAdStart || isFinalizingBonus) return;
-      isFinalizingBonus = true;
-      pendingAdStart = null;
-      localStorage.removeItem('cashplay_ad_start');
-      if (pendingAdInterval) {
-        clearInterval(pendingAdInterval);
-        pendingAdInterval = null;
-      }
-
-      try {
+        const p = JSON.parse(raw);
+        if ((Date.now() - p.ts) / 1000 < 5) return;
+        localStorage.removeItem('cp_daily_pending');
         const res = await fetch('/api/daily-bonus', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: USER_ID, amount: DAILY_BONUS_AMOUNT })
+          body: JSON.stringify({ userId: getUserId() })
         });
         const data = await res.json();
-        showToast(data.message || ('+' + DAILY_BONUS_AMOUNT + ' moedas!'));
-        if (data.ok) await loadDashboard();
-      } catch (err) {
-        showToast(I18N[currentLang].toastConnErr);
-      } finally {
-        isFinalizingBonus = false;
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = I18N[currentLang].dailyBtn;
+        if (data && data.ok) {
+          localStorage.setItem('cp_daily_claimed', p.date);
+          window.updateBalanceUI(data.balance);
+          toast('🎉 Bônus diário de +20 moedas creditado!');
+        } else if (data && data.error) {
+          toast(data.error);
         }
-      }
-    }
-
-    function checkPendingAd() {
-      const saved = Number(localStorage.getItem('cashplay_ad_start') || 0);
-      if (saved && !pendingAdStart) pendingAdStart = saved;
-      if (pendingAdStart) {
-        const elapsed = Date.now() - pendingAdStart;
-        if (elapsed >= 4000) {
-          finalizeDailyBonus();
-        }
-      }
+      } catch (e) {}
     }
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') checkPendingAd();
+      if (document.visibilityState === 'visible') checkDailyReturn();
     });
-    window.addEventListener('focus', checkPendingAd);
 
-    async function claimDailyBonus() {
-      const t = I18N[currentLang];
-      const btn = document.getElementById('dailyBonusBtn');
-      if (btn && btn.disabled) return;
+    async function submitWithdraw() {
+      const method = document.getElementById('wd-method').value;
+      const account = document.getElementById('wd-account').value.trim();
+      const amount = Number(document.getElementById('wd-amount').value || 0);
+      if (!account) return toast('Informe sua chave PIX, e-mail PayPal ou carteira USDT.');
+      if (amount < 2000) return toast('Saque mínimo: 2.000 moedas.');
 
-      pendingAdStart = Date.now();
-      localStorage.setItem('cashplay_ad_start', String(pendingAdStart));
-
-      window.open(MONETAG_DIRECT_LINK, '_blank');
-
-      if (btn) btn.disabled = true;
-      showToast(t.toastAdViewing);
-
-      pendingAdInterval = setInterval(() => {
-        if (!pendingAdStart) {
-          clearInterval(pendingAdInterval);
-          return;
-        }
-        const elapsedSec = Math.floor((Date.now() - pendingAdStart) / 1000);
-        const left = Math.max(0, 5 - elapsedSec);
-        if (left > 0) {
-          btn.textContent = I18N[currentLang].dailyWait.replace('{s}', left);
-        } else {
-          finalizeDailyBonus();
-        }
-      }, 500);
-    }
-
-    async function requestWithdraw() {
-      const t = I18N[currentLang];
-      const method = document.getElementById('withdrawMethod').value;
-      const account = document.getElementById('withdrawAccount').value.trim();
-      const amountCoins = Number(document.getElementById('withdrawAmount').value);
       const res = await fetch('/api/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: USER_ID, method, account, amountCoins })
+        body: JSON.stringify({ userId: getUserId(), method, account, amount })
       });
       const data = await res.json();
-      if (data.ok) {
-        showToast(t.toastWdSent);
-        loadDashboard();
+      if (data && data.ok) {
+        window.updateBalanceUI(data.balance);
+        toast('✅ Solicitação de saque enviada! Prazo: 24-48h.');
       } else {
-        showToast(data.message || t.toastWdErr);
+        toast(data.error || 'Saldo insuficiente.');
       }
-    }
-
-    function openOfferwall(name) {
-      const t = I18N[currentLang];
-      if (name && name.toLowerCase().includes('timewall')) {
-        showToast(t.toastOpeningTw);
-        const url = 'https://timewall.io/users/login?oid=' + TIMEWALL_OID + '&uid=' + encodeURIComponent(USER_ID);
-        window.open(url, '_blank');
-        return;
-      }
-      showToast(t.toastToroxSoon);
     }
 
     function copyRefLink() {
-      const t = I18N[currentLang];
-      const input = document.getElementById('refLink');
-      input.select();
-      navigator.clipboard.writeText(input.value);
-      showToast(t.toastRefCopied);
+      const inp = document.getElementById('ref-link-input');
+      inp.select();
+      navigator.clipboard?.writeText(inp.value);
+      toast('Link de convite copiado!');
     }
 
-    (async function initApp() {
-      applyLanguage();
-      const safe = await runAntiFraudShield();
-      if (safe) {
-        await loadDashboard();
-        checkPendingAd();
-      }
-    })();
+    function switchTab(name, btn) {
+      document.querySelectorAll('.tab-view').forEach((el) => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach((el) => el.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    function showLegal(type) {
+      alert(
+        type === 'terms'
+          ? 'Termos de Uso CashPlay: É proibido o uso de VPN, proxies, emuladores, bots ou múltiplas contas. Os pagamentos são auditados manualmente em até 48h.'
+          : 'Política de Privacidade CashPlay: Coletamos apenas ID de sessão, endereço IP para prevenção de fraude e chave de pagamento informada voluntariamente no saque.'
+      );
+    }
+
+    // Cambio rápido PT / ES
+    let currentLang = 'pt';
+    document.getElementById('lang-toggle').onclick = function () {
+      currentLang = currentLang === 'pt' ? 'es' : 'pt';
+      this.textContent = currentLang === 'pt' ? '🇧🇷 PT' : '🇪🇸 ES';
+      const dict = {
+        pt: {
+          heroBadge: '🔥 RECOMPENSAS ATIVAS',
+          heroTitle: 'Instale jogos e apps, cumpra missões e saque dinheiro real',
+          dailyBtn: '🎬 Bônus Diário (+20 moedas • Ver Anúncio)',
+          wallsTitle: 'Murais de Ofertas (Offerwalls)',
+          tapOpen: 'Toque para abrir',
+          twDesc: 'Tarefas, Cliques e Pesquisas',
+          otDesc: 'Jogos e Aplicativos',
+          catTitle: 'Acesso Direto por Categoria'
+        },
+        es: {
+          heroBadge: '🔥 RECOMPENSAS ACTIVAS',
+          heroTitle: 'Instala juegos y apps, cumple misiones y retira dinero real',
+          dailyBtn: '🎬 Bono Diario (+20 monedas • Ver Anuncio)',
+          wallsTitle: 'Muros de Ofertas (Offerwalls)',
+          tapOpen: 'Toca para abrir',
+          twDesc: 'Tareas, Clics y Encuestas',
+          otDesc: 'Juegos y Aplicaciones',
+          catTitle: 'Acceso Directo por Categoría'
+        }
+      };
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const k = el.getAttribute('data-i18n');
+        if (dict[currentLang][k]) el.textContent = dict[currentLang][k];
+      });
+    };
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    window.loadUser();
+  </script>
+  <script src="/games.js"></script>
+  <script>
+    if (typeof window.initCashPlayArcade === 'function') {
+      window.initCashPlayArcade('cashplay-arcade-root');
+    }
   </script>
 </body>
 </html>
