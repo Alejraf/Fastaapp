@@ -540,4 +540,23 @@ app.post('/api/admin/withdraw', async (req, res) => {
   const { id, status } = req.body || {};
   if (db && id) {
     const wRef = db.collection('withdrawals').doc(id);
-    await db.runTransaction(async (tx) 
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(wRef);
+      if (!snap.exists) return;
+      const data = snap.data();
+      if (data.status !== 'pending') return;
+      tx.update(wRef, { status, updatedAt: new Date().toISOString() });
+      if (status === 'rejected') {
+        const uRef = db.collection('users').doc(data.userId);
+        const uSnap = await tx.get(uRef);
+        if (uSnap.exists) {
+          tx.update(uRef, { balance: Number(uSnap.data().balance || 0) + Number(data.amount || 0) });
+        }
+      }
+    });
+  }
+  res.json({ ok: true });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log('CashPlay server running on port ' + PORT));
