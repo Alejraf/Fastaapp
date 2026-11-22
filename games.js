@@ -1,10 +1,10 @@
-// CashPlay Arcade Module v2.7 (100% Public Domain Mechanics - MIT/Original Implementation)
+// CashPlay Arcade Module v2.8 (Calibrado para Rentabilidad Sostenible)
 // Juegos incluidos: 2048 Fusion, Memory Match, Neon Serpent
-// Cumple políticas de Monetag: activación voluntaria (opt-in) al subir de nivel + límite diario antifraude.
+// +3 monedas por nivel completado (máx. 10 niveles/día = +30 monedas/día)
 
 (function () {
-  const DAILY_LIMIT = 10; // Máximo 10 recompensas de nivel por día
-  const REWARD_COINS = 5; // +5 monedas por nivel completado
+  const DAILY_LIMIT = 10;
+  const REWARD_COINS = 3;
   const AD_WAIT_SECONDS = 5;
 
   function getTodayKey() {

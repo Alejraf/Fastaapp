@@ -112,6 +112,9 @@
       font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 6px;
       background: rgba(56, 189, 248, 0.15); color: #38bdf8;
     }
+    .tag-gold {
+      background: rgba(245, 158, 11, 0.18); color: #fbbf24;
+    }
 
     .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
     .cat-card {
@@ -137,6 +140,14 @@
     }
     .legal-links { text-align: center; margin-top: 14px; font-size: 12px; }
     .legal-links a { color: #38bdf8; text-decoration: none; margin: 0 8px; }
+
+    .progress-wrap {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 12px 14px; margin-bottom: 16px;
+    }
+    .progress-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+    .progress-bar { height: 8px; background: #0f172a; border-radius: 999px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #10b981, #38bdf8); width: 0%; transition: width 0.3s; }
 
     nav.bottom-nav {
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
@@ -186,14 +197,21 @@
         <div class="hero-badge" data-i18n="heroBadge">🔥 RECOMPENSAS ATIVAS</div>
         <h1 data-i18n="heroTitle">Instale jogos e apps, cumpra missões e saque dinheiro real</h1>
         <p class="hero-sub">1.000 moedas = $1.00 USD / R$ 5,00</p>
-        <button class="btn-primary" id="btn-daily-bonus" data-i18n="dailyBtn">🎬 Bônus Diário (+20 moedas • Ver Anúncio)</button>
+        <button class="btn-primary" id="btn-daily-bonus" data-i18n="dailyBtn">🎬 Bônus Diário (+10 moedas • Ver Anúncio)</button>
       </div>
 
-      <!-- SECCIÓN ARCADE LEGAL (2048, MEMORY, SERPENT) -->
-      <div id="cashplay-arcade-root"></div>
+      <!-- BARRA DE PROGRESO HACIA EL RETIRO -->
+      <div class="progress-wrap">
+        <div class="progress-top">
+          <span>🎯 Meta para Saque (2.000 moedas)</span>
+          <strong id="goal-pct">0%</strong>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="goal-fill"></div></div>
+      </div>
 
+      <!-- MURALS DE OFERTAS PRIMERO (MAYOR GANANCIA PARA AMBOS) -->
       <div class="section-hdr">
-        <h2 data-i18n="wallsTitle">Murais de Ofertas (Offerwalls)</h2>
+        <h2 data-i18n="wallsTitle">Murais de Ofertas (Ganho Rápido)</h2>
         <span data-i18n="tapOpen">Toque para abrir</span>
       </div>
 
@@ -201,25 +219,16 @@
         <div class="wall-left">
           <div class="wall-ico">🧱</div>
           <div>
-            <div class="wall-title">TimeWall</div>
-            <div class="wall-reward">+1.200 moedas</div>
-            <div class="wall-desc" data-i18n="twDesc">Tarefas, Cliques e Pesquisas</div>
+            <div class="wall-title">TimeWall Oficial</div>
+            <div class="wall-reward">+150 a +2.500 moedas por missão</div>
+            <div class="wall-desc" data-i18n="twDesc">Jogos, Pesquisas, Cliques e Cadastros</div>
           </div>
         </div>
-        <span class="tag">POPULAR</span>
+        <span class="tag tag-gold">MAIS PAGA</span>
       </div>
 
-      <div class="wall-card" onclick="openTimeWall()">
-        <div class="wall-left">
-          <div class="wall-ico">🎯</div>
-          <div>
-            <div class="wall-title">OfferToro / Torox</div>
-            <div class="wall-reward">+2.500 moedas</div>
-            <div class="wall-desc" data-i18n="otDesc">Jogos e Aplicativos</div>
-          </div>
-        </div>
-        <span class="tag">RECOMENDADO</span>
-      </div>
+      <!-- SECCIÓN ARCADE LEGAL (+3 MOEDAS/NÍVEL, MÁX 10/DIA) -->
+      <div id="cashplay-arcade-root"></div>
 
       <div class="section-hdr">
         <h2 data-i18n="catTitle">Acesso Direto por Categoria</h2>
@@ -230,25 +239,25 @@
         <div class="cat-card" onclick="openTimeWall()">
           <div class="cat-ico">🎮</div>
           <div class="cat-title" data-i18n="c1t">Jogos e Apps</div>
-          <div class="cat-sub">Abrir no TimeWall</div>
+          <div class="cat-sub">+500 a +2.500 moedas</div>
           <div class="cat-txt">Instale jogos verificados e receba moedas automáticas</div>
         </div>
         <div class="cat-card" onclick="openTimeWall()">
           <div class="cat-ico">📋</div>
           <div class="cat-title" data-i18n="c2t">Pesquisas Pagas</div>
-          <div class="cat-sub">Abrir no TimeWall</div>
+          <div class="cat-sub">+100 a +800 moedas</div>
           <div class="cat-txt">Responda pesquisas rápidas e ganhe na hora</div>
         </div>
         <div class="cat-card" onclick="openTimeWall()">
           <div class="cat-ico">⚡</div>
           <div class="cat-title" data-i18n="c3t">Tarefas Rápidas</div>
-          <div class="cat-sub">Abrir no TimeWall</div>
+          <div class="cat-sub">+20 a +300 moedas</div>
           <div class="cat-txt">Microtarefas verificadas com crédito instantâneo</div>
         </div>
         <div class="cat-card" onclick="openTimeWall()">
           <div class="cat-ico">🖱️</div>
           <div class="cat-title" data-i18n="c4t">Cliques e Vídeos</div>
-          <div class="cat-sub">Abrir no TimeWall</div>
+          <div class="cat-sub">+5 a +50 moedas</div>
           <div class="cat-txt">Visite sites patrocinados e acumule pontos</div>
         </div>
       </div>
@@ -288,7 +297,7 @@
         <button class="btn-primary" id="btn-withdraw" onclick="submitWithdraw()">Solicitar Saque</button>
 
         <div class="notice-box">
-          🔒 <strong>Verificação de Identidade e Antifraude:</strong> Todos os saques (PIX, PayPal ou USDT) passam por verificação manual de identidade e auditoria de tráfego em até 24-48h antes do pagamento. Contas com VPN, emuladores ou múltiplos cadastros serão bloqueadas.
+          🔒 <strong>Verificação de Identidade e Antifraude:</strong> Para liberar o primeiro saque, é necessário ter completado ao menos <strong>1 missão no Mural de Ofertas (TimeWall)</strong>. Todos os saques passam por auditoria manual em até 24-48h. Contas com VPN, emuladores ou múltiplos cadastros serão bloqueadas.
         </div>
 
         <div class="legal-links">
@@ -304,6 +313,7 @@
         <h2 style="margin-top:0;">👤 Meu Perfil & Segurança</h2>
         <p style="font-size:13px;"><strong>ID da Conta:</strong> <span id="prof-uid">-</span></p>
         <p style="font-size:13px;"><strong>Saldo Atual:</strong> <span id="prof-bal">0</span> moedas</p>
+        <p style="font-size:13px;"><strong>Missões Offerwall concluídas:</strong> <span id="prof-offers">0</span></p>
         <p style="font-size:13px;color:#34d399;">🛡️ Escudo Antifraude Ativo (Dispositivo Verificado)</p>
       </div>
     </section>
@@ -327,7 +337,7 @@
       t.textContent = msg;
       t.style.display = 'block';
       clearTimeout(window._tTimer);
-      window._tTimer = setTimeout(() => { t.style.display = 'none'; }, 3200);
+      window._tTimer = setTimeout(() => { t.style.display = 'none'; }, 3500);
     }
 
     function getUserId() {
@@ -339,11 +349,17 @@
       return uid;
     }
 
-    window.updateBalanceUI = function (coins) {
+    window.updateBalanceUI = function (coins, offersCount) {
       const c = Number(coins || 0);
       document.getElementById('hdr-coins').textContent = c;
       document.getElementById('hdr-usd').textContent = '$' + (c / 1000).toFixed(2);
       document.getElementById('prof-bal').textContent = c;
+      if (typeof offersCount === 'number') {
+        document.getElementById('prof-offers').textContent = offersCount;
+      }
+      const pct = Math.min(100, Math.round((c / 2000) * 100));
+      document.getElementById('goal-pct').textContent = pct + '%';
+      document.getElementById('goal-fill').style.width = pct + '%';
     };
 
     window.loadUser = async function () {
@@ -361,7 +377,7 @@
         });
         const data = await res.json();
         if (data && typeof data.balance === 'number') {
-          window.updateBalanceUI(data.balance);
+          window.updateBalanceUI(data.balance, Number(data.offersCompleted || 0));
         }
       } catch (e) {
         console.error(e);
@@ -374,7 +390,7 @@
       window.open(url, '_blank', 'noopener');
     }
 
-    // Bono diario (+20 moedas) con Monetag Direct Link
+    // Bono diario (+10 moedas) calibrado para rentabilidad con Monetag
     document.getElementById('btn-daily-bonus').onclick = function () {
       const today = new Date().toISOString().slice(0, 10);
       if (localStorage.getItem('cp_daily_claimed') === today) {
@@ -383,7 +399,7 @@
       }
       localStorage.setItem('cp_daily_pending', JSON.stringify({ date: today, ts: Date.now() }));
       window.open(window.MONETAG_DIRECT_LINK, '_blank', 'noopener');
-      toast('Assista ao anúncio por alguns segundos e volte para receber +20 moedas!');
+      toast('Assista ao anúncio por alguns segundos e volte para receber +10 moedas!');
     };
 
     async function checkDailyReturn() {
@@ -402,7 +418,7 @@
         if (data && data.ok) {
           localStorage.setItem('cp_daily_claimed', p.date);
           window.updateBalanceUI(data.balance);
-          toast('🎉 Bônus diário de +20 moedas creditado!');
+          toast('🎉 Bônus diário de +10 moedas creditado!');
         } else if (data && data.error) {
           toast(data.error);
         }
@@ -430,7 +446,7 @@
         window.updateBalanceUI(data.balance);
         toast('✅ Solicitação de saque enviada! Prazo: 24-48h.');
       } else {
-        toast(data.error || 'Saldo insuficiente.');
+        toast(data.error || 'Não foi possível solicitar o saque.');
       }
     }
 
@@ -451,12 +467,11 @@
     function showLegal(type) {
       alert(
         type === 'terms'
-          ? 'Termos de Uso CashPlay: É proibido o uso de VPN, proxies, emuladores, bots ou múltiplas contas. Os pagamentos são auditados manualmente em até 48h.'
+          ? 'Termos de Uso CashPlay: É proibido o uso de VPN, proxies, emuladores, bots ou múltiplas contas. Para sacar é necessário concluir ao menos 1 missão no mural de ofertas. Pagamentos auditados em até 48h.'
           : 'Política de Privacidade CashPlay: Coletamos apenas ID de sessão, endereço IP para prevenção de fraude e chave de pagamento informada voluntariamente no saque.'
       );
     }
 
-    // Cambio rápido PT / ES
     let currentLang = 'pt';
     document.getElementById('lang-toggle').onclick = function () {
       currentLang = currentLang === 'pt' ? 'es' : 'pt';
@@ -465,21 +480,19 @@
         pt: {
           heroBadge: '🔥 RECOMPENSAS ATIVAS',
           heroTitle: 'Instale jogos e apps, cumpra missões e saque dinheiro real',
-          dailyBtn: '🎬 Bônus Diário (+20 moedas • Ver Anúncio)',
-          wallsTitle: 'Murais de Ofertas (Offerwalls)',
+          dailyBtn: '🎬 Bônus Diário (+10 moedas • Ver Anúncio)',
+          wallsTitle: 'Murais de Ofertas (Ganho Rápido)',
           tapOpen: 'Toque para abrir',
-          twDesc: 'Tarefas, Cliques e Pesquisas',
-          otDesc: 'Jogos e Aplicativos',
+          twDesc: 'Jogos, Pesquisas, Cliques e Cadastros',
           catTitle: 'Acesso Direto por Categoria'
         },
         es: {
           heroBadge: '🔥 RECOMPENSAS ACTIVAS',
           heroTitle: 'Instala juegos y apps, cumple misiones y retira dinero real',
-          dailyBtn: '🎬 Bono Diario (+20 monedas • Ver Anuncio)',
-          wallsTitle: 'Muros de Ofertas (Offerwalls)',
+          dailyBtn: '🎬 Bono Diario (+10 monedas • Ver Anuncio)',
+          wallsTitle: 'Muros de Ofertas (Ganancia Rápida)',
           tapOpen: 'Toca para abrir',
-          twDesc: 'Tareas, Clics y Encuestas',
-          otDesc: 'Juegos y Aplicaciones',
+          twDesc: 'Juegos, Encuestas, Clics y Registros',
           catTitle: 'Acceso Directo por Categoría'
         }
       };

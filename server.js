@@ -38,7 +38,7 @@ function getClientIp(req) {
   return (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 }
 
-// Obtener o crear usuario
+// Obtener o crear usuario (Bono bienvenida calibrado en 200 monedas = $0.20 USD)
 app.post('/api/user', async (req, res) => {
   try {
     const { userId, ref } = req.body || {};
@@ -51,7 +51,9 @@ app.post('/api/user', async (req, res) => {
       if (!snap.exists) {
         const newUser = {
           userId,
-          balance: 500, // Bono de bienvenida
+          balance: 200,
+          offersCompleted: 0,
+          offerwallCoins: 0,
           referredBy: ref && ref !== userId ? String(ref).slice(0, 32) : null,
           ip,
           createdAt: new Date().toISOString()
@@ -64,7 +66,7 @@ app.post('/api/user', async (req, res) => {
     }
 
     if (!memUsers[userId]) {
-      memUsers[userId] = { userId, balance: 500, ip };
+      memUsers[userId] = { userId, balance: 200, offersCompleted: 0, offerwallCoins: 0, ip };
     }
     return res.json(memUsers[userId]);
   } catch (err) {
@@ -72,13 +74,13 @@ app.post('/api/user', async (req, res) => {
   }
 });
 
-// Bono diario (+20 monedas)
+// Bono diario (+10 monedas)
 app.post('/api/daily-bonus', async (req, res) => {
   try {
     const { userId } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'INVALID_USER' });
     const today = new Date().toISOString().slice(0, 10);
-    const BONUS = 20;
+    const BONUS = 10;
 
     if (db) {
       const userRef = db.collection('users').doc(userId);
@@ -97,7 +99,7 @@ app.post('/api/daily-bonus', async (req, res) => {
       return res.json({ ok: true, balance: out.balance });
     }
 
-    const u = memUsers[userId] || { userId, balance: 500 };
+    const u = memUsers[userId] || { userId, balance: 200 };
     if (u.lastDailyBonus === today) return res.status(429).json({ ok: false, error: 'Bônus diário já resgatado hoje.' });
     u.balance += BONUS;
     u.lastDailyBonus = today;
@@ -108,7 +110,7 @@ app.post('/api/daily-bonus', async (req, res) => {
   }
 });
 
-// Recompensa de subida de nivel en CashPlay Arcade (+5 monedas, máx. 10/día)
+// Recompensa de subida de nivel en CashPlay Arcade (+3 monedas, máx. 10/día)
 app.post('/api/game-reward', async (req, res) => {
   try {
     const { userId, game, level } = req.body || {};
@@ -117,7 +119,7 @@ app.post('/api/game-reward', async (req, res) => {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const REWARD = 5;
+    const REWARD = 3;
     const DAILY_MAX = 10;
 
     if (db) {
@@ -159,7 +161,7 @@ app.post('/api/game-reward', async (req, res) => {
       return res.json({ ok: true, reward: REWARD, balance: result.balance });
     }
 
-    const u = memUsers[userId] || { userId, balance: 500 };
+    const u = memUsers[userId] || { userId, balance: 200 };
     u.balance += REWARD;
     memUsers[userId] = u;
     return res.json({ ok: true, reward: REWARD, balance: u.balance });
@@ -182,13 +184,27 @@ app.get('/api/postback', async (req, res) => {
     if (db) {
       const txDoc = db.collection('postbacks').doc(transactionId);
       const exists = await txDoc.get();
-      if (exists.exists) return res.send('OK'); // Idempotencia
+      if (exists.exists) return res.send('OK');
 
       const userRef = db.collection('users').doc(String(userid));
       await db.runTransaction(async (tx) => {
         const uSnap = await tx.get(userRef);
-        const cur = uSnap.exists ? Number(uSnap.data().balance || 0) : 0;
-        tx.set(userRef, { userId: String(userid), balance: cur + coins }, { merge: true });
+        const uData = uSnap.exists ? uSnap.data() : {};
+        const cur = Number(uData.balance || 0);
+        const prevOffers = Number(uData.offersCompleted || 0);
+        const prevOfferCoins = Number(uData.offerwallCoins || 0);
+
+        tx.set(
+          userRef,
+          {
+            userId: String(userid),
+            balance: cur + coins,
+            offersCompleted: prevOffers + 1,
+            offerwallCoins: prevOfferCoins + coins
+          },
+          { merge: true }
+        );
+
         tx.set(txDoc, {
           userId: String(userid),
           amount: coins,
@@ -197,8 +213,8 @@ app.get('/api/postback', async (req, res) => {
         });
 
         // Comisión 10% para referido si existe
-        if (uSnap.exists && uSnap.data().referredBy) {
-          const refId = uSnap.data().referredBy;
+        if (uSnap.exists && uData.referredBy) {
+          const refId = uData.referredBy;
           const refBonus = Math.floor(coins * 0.1);
           if (refBonus > 0) {
             const refUserRef = db.collection('users').doc(refId);
@@ -214,8 +230,10 @@ app.get('/api/postback', async (req, res) => {
 
     if (!memTx.has(transactionId)) {
       memTx.add(transactionId);
-      const u = memUsers[userid] || { userId: userid, balance: 0 };
+      const u = memUsers[userid] || { userId: userid, balance: 0, offersCompleted: 0, offerwallCoins: 0 };
       u.balance += coins;
+      u.offersCompleted = (u.offersCompleted || 0) + 1;
+      u.offerwallCoins = (u.offerwallCoins || 0) + coins;
       memUsers[userid] = u;
     }
     return res.send('OK');
@@ -224,7 +242,7 @@ app.get('/api/postback', async (req, res) => {
   }
 });
 
-// Solicitud de retiro
+// Solicitud de retiro (Requiere >= 2.000 monedas y al menos 1 oferta completada en TimeWall)
 app.post('/api/withdraw', async (req, res) => {
   try {
     const { userId, method, account, amount } = req.body || {};
@@ -239,8 +257,19 @@ app.post('/api/withdraw', async (req, res) => {
       const out = await db.runTransaction(async (tx) => {
         const snap = await tx.get(userRef);
         if (!snap.exists) return { ok: false, error: 'Usuário não encontrado.' };
-        const bal = Number(snap.data().balance || 0);
+        const data = snap.data();
+        const bal = Number(data.balance || 0);
+        const offersCompleted = Number(data.offersCompleted || 0);
+        const offerwallCoins = Number(data.offerwallCoins || 0);
+
         if (bal < coins) return { ok: false, error: 'Saldo insuficiente.' };
+        if (offersCompleted < 1) {
+          return {
+            ok: false,
+            error: 'Complete ao menos 1 missão no Mural de Ofertas (TimeWall) para desbloquear o saque.'
+          };
+        }
+
         const nextBal = bal - coins;
         tx.update(userRef, { balance: nextBal });
 
@@ -251,6 +280,8 @@ app.post('/api/withdraw', async (req, res) => {
           account: String(account),
           amount: coins,
           usd: (coins / 1000).toFixed(2),
+          offersCompleted,
+          offerwallCoins,
           ip,
           status: 'pending',
           createdAt: new Date().toISOString()
@@ -262,15 +293,31 @@ app.post('/api/withdraw', async (req, res) => {
 
     const u = memUsers[userId];
     if (!u || u.balance < coins) return res.json({ ok: false, error: 'Saldo insuficiente.' });
+    if ((u.offersCompleted || 0) < 1) {
+      return res.json({
+        ok: false,
+        error: 'Complete ao menos 1 missão no Mural de Ofertas (TimeWall) para desbloquear o saque.'
+      });
+    }
     u.balance -= coins;
-    memWithdraws.push({ id: String(Date.now()), userId, method, account, amount: coins, ip, status: 'pending' });
+    memWithdraws.push({
+      id: String(Date.now()),
+      userId,
+      method,
+      account,
+      amount: coins,
+      offersCompleted: u.offersCompleted || 0,
+      offerwallCoins: u.offerwallCoins || 0,
+      ip,
+      status: 'pending'
+    });
     return res.json({ ok: true, balance: u.balance });
   } catch (err) {
     return res.status(500).json({ ok: false, error: 'SERVER_ERROR' });
   }
 });
 
-// Panel de administración (/admin?secret=...)
+// Panel de administración (/admin?secret=...) con indicador de rentabilidad por usuario
 app.get('/admin', async (req, res) => {
   if (req.query.secret !== POSTBACK_SECRET) return res.status(403).send('Acceso denegado');
 
@@ -293,6 +340,7 @@ app.get('/admin', async (req, res) => {
         <td>${w.userId}</td>
         <td>${w.method}: <strong>${w.account}</strong></td>
         <td>${w.amount} ($${w.usd || (w.amount / 1000).toFixed(2)})</td>
+        <td>${w.offersCompleted || 0} ofertas (${w.offerwallCoins || 0} pts)</td>
         <td>${w.ip || '-'}</td>
         <td>${w.status}</td>
         <td>
@@ -309,11 +357,11 @@ app.get('/admin', async (req, res) => {
 
   res.send(`
     <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-    <style>body{font-family:sans-serif;background:#0b1120;color:#fff;padding:16px}table{width:100%;border-collapse:collapse;font-size:13px}td,th{border:1px solid #253354;padding:8px}button{padding:6px 10px;margin:2px;cursor:pointer}</style>
+    <style>body{font-family:sans-serif;background:#0b1120;color:#fff;padding:16px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #253354;padding:8px}button{padding:6px 10px;margin:2px;cursor:pointer}</style>
     </head><body>
-      <h2>💎 Panel Admin CashPlay</h2>
+      <h2>💎 Panel Admin CashPlay (Auditoría Rentable)</h2>
       <p>Usuarios totales: <strong>${usersCount}</strong> | Firestore: <strong>${db ? 'Activo' : 'Memoria'}</strong></p>
-      <table><thead><tr><th>Usuario</th><th>Cuenta</th><th>Monto</th><th>IP</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>
+      <table><thead><tr><th>Usuario</th><th>Cuenta</th><th>Retiro</th><th>Ingresos Offerwall</th><th>IP</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>
       <script>
         async function act(id, status){
           await fetch('/api/admin/withdraw?secret=${encodeURIComponent(req.query.secret)}',{
