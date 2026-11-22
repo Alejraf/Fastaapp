@@ -440,12 +440,20 @@ app.get('/admin', async (req, res) => {
         });
       }
     });
-    usersList.sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)));
+    usersList.sort((a, b) => {
+      if (b.adActionsCount !== a.adActionsCount) return b.adActionsCount - a.adActionsCount;
+      if (b.balance !== a.balance) return b.balance - a.balance;
+      return String(b.lastSeen).localeCompare(String(a.lastSeen));
+    });
 
     const wSnap = await db.collection('withdrawals').orderBy('createdAt', 'desc').limit(50).get();
     list = wSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } else {
-    usersList = Object.values(memUsers);
+    usersList = Object.values(memUsers).sort((a, b) => {
+      const adsDiff = Number(b.adActionsCount || 0) - Number(a.adActionsCount || 0);
+      if (adsDiff !== 0) return adsDiff;
+      return Number(b.balance || 0) - Number(a.balance || 0);
+    });
     usersCount = usersList.length;
     totalAds = usersList.reduce((acc, u) => acc + Number(u.adActionsCount || 0), 0);
     list = memWithdraws;
