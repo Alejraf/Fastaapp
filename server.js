@@ -278,7 +278,7 @@ app.post('/api/game-reward', async (req, res) => {
   }
 });
 
-// Postback S2S de Offerwalls (Listo para cuando te aprueben TimeWall / CPX / BitLabs)
+// Postback S2S de Offerwalls
 app.get('/api/postback', async (req, res) => {
   try {
     const { secret, userid, amount, txid, offer_name } = req.query;
@@ -347,7 +347,7 @@ app.get('/api/postback', async (req, res) => {
   }
 });
 
-// Solicitud de retiro (Habilitado con Monetag sin bloqueo de Offerwall pendiente)
+// Solicitud de retiro
 app.post('/api/withdraw', async (req, res) => {
   try {
     const { userId, method, account, amount } = req.body || {};
@@ -407,19 +407,42 @@ app.post('/api/withdraw', async (req, res) => {
   }
 });
 
-// Panel de administración (/admin?secret=...) con contador de anuncios vistos por usuario
+// Panel de administración (/admin?secret=...) con retiros Y detalle simplificado de usuarios activos
 app.get('/admin', async (req, res) => {
   if (req.query.secret !== POSTBACK_SECRET) return res.status(403).send('Acceso denegado');
 
   let usersCount = 0;
+  let totalAds = 0;
+  let usersList = [];
   let list = [];
+
   if (db) {
     const uSnap = await db.collection('users').get();
     usersCount = uSnap.size;
+    uSnap.docs.forEach((d) => {
+      const data = d.data() || {};
+      const uid = data.userId || d.id;
+      if (String(uid).startsWith('usr_')) {
+        const ads = Number(data.adActionsCount || 0);
+        totalAds += ads;
+        usersList.push({
+          userId: uid,
+          balance: Number(data.balance || 0),
+          adActionsCount: ads,
+          streakDay: Number(data.streakDay || 0),
+          ip: data.lastIp || data.ip || '-',
+          lastSeen: data.lastSeen || data.createdAt || ''
+        });
+      }
+    });
+    usersList.sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)));
+
     const wSnap = await db.collection('withdrawals').orderBy('createdAt', 'desc').limit(50).get();
     list = wSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } else {
-    usersCount = Object.keys(memUsers).length;
+    usersList = Object.values(memUsers);
+    usersCount = usersList.length;
+    totalAds = usersList.reduce((acc, u) => acc + Number(u.adActionsCount || 0), 0);
     list = memWithdraws;
   }
 
@@ -445,13 +468,61 @@ app.get('/admin', async (req, res) => {
     )
     .join('');
 
+  const userRows = usersList
+    .slice(0, 100)
+    .map((u) => {
+      const dateShort = u.lastSeen ? String(u.lastSeen).replace('T', ' ').slice(0, 16) : '-';
+      return `
+      <tr>
+        <td><strong>${u.userId}</strong></td>
+        <td style="color:#fbbf24;font-weight:700">${u.balance}</td>
+        <td style="color:#34d399;font-weight:700">${u.adActionsCount}</td>
+        <td>Día ${u.streakDay}</td>
+        <td>${u.ip}</td>
+        <td>${dateShort}</td>
+      </tr>`;
+    })
+    .join('');
+
   res.send(`
     <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-    <style>body{font-family:sans-serif;background:#0b1120;color:#fff;padding:16px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #253354;padding:8px}button{padding:6px 10px;margin:2px;cursor:pointer}</style>
+    <style>
+      body{font-family:sans-serif;background:#0b1120;color:#fff;padding:14px;margin:0}
+      .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+      .card{background:#131c31;border:1px solid #253354;border-radius:10px;padding:10px 14px;font-size:13px}
+      .card strong{display:block;font-size:18px;color:#38bdf8;margin-top:2px}
+      .wrap{overflow-x:auto;margin-bottom:20px}
+      table{width:100%;border-collapse:collapse;font-size:12px;background:#131c31}
+      td,th{border:1px solid #253354;padding:8px;text-align:left;white-space:nowrap}
+      th{background:#19243e;color:#94a3b8}
+      button{padding:6px 10px;margin:2px;cursor:pointer;border-radius:6px;border:none;font-weight:700}
+      h3{margin:14px 0 8px;font-size:15px;color:#e2e8f0}
+    </style>
     </head><body>
-      <h2>💎 Panel Admin CashPlay (Modo Monetag)</h2>
-      <p>Usuarios totales: <strong>${usersCount}</strong> | Firestore: <strong>${db ? 'Activo' : 'Memoria'}</strong></p>
-      <table><thead><tr><th>Usuario</th><th>Cuenta</th><th>Retiro</th><th>Anuncios Vistos</th><th>IP</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>
+      <h2 style="margin:0 0 12px;font-size:18px">💎 Panel Admin CashPlay</h2>
+      <div class="stats">
+        <div class="card">Usuarios CashPlay<strong>${usersList.length}</strong></div>
+        <div class="card">Total Docs DB<strong>${usersCount}</strong></div>
+        <div class="card">Anuncios Vistos<strong>${totalAds}</strong></div>
+        <div class="card">Base de Datos<strong>${db ? 'Firestore OK' : 'Memoria'}</strong></div>
+      </div>
+
+      <h3>💸 Solicitudes de Retiro</h3>
+      <div class="wrap">
+        <table>
+          <thead><tr><th>Usuario</th><th>Cuenta</th><th>Retiro</th><th>Anuncios</th><th>IP</th><th>Estado</th><th>Acción</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="7" style="color:#94a3b8">Sin retiros pendientes todavía.</td></tr>'}</tbody>
+        </table>
+      </div>
+
+      <h3>👥 Detalle de Usuarios Activos (Últimos 100)</h3>
+      <div class="wrap">
+        <table>
+          <thead><tr><th>ID Usuario</th><th>Monedas</th><th>Anuncios Vistos</th><th>Racha</th><th>IP</th><th>Última Actividad (UTC)</th></tr></thead>
+          <tbody>${userRows || '<tr><td colspan="6" style="color:#94a3b8">Aún no hay usuarios registrados.</td></tr>'}</tbody>
+        </table>
+      </div>
+
       <script>
         async function act(id, status){
           await fetch('/api/admin/withdraw?secret=${encodeURIComponent(req.query.secret)}',{
@@ -469,23 +540,4 @@ app.post('/api/admin/withdraw', async (req, res) => {
   const { id, status } = req.body || {};
   if (db && id) {
     const wRef = db.collection('withdrawals').doc(id);
-    await db.runTransaction(async (tx) => {
-      const snap = await tx.get(wRef);
-      if (!snap.exists) return;
-      const data = snap.data();
-      if (data.status !== 'pending') return;
-      tx.update(wRef, { status, updatedAt: new Date().toISOString() });
-      if (status === 'rejected') {
-        const uRef = db.collection('users').doc(data.userId);
-        const uSnap = await tx.get(uRef);
-        if (uSnap.exists) {
-          tx.update(uRef, { balance: Number(uSnap.data().balance || 0) + Number(data.amount || 0) });
-        }
-      }
-    });
-  }
-  res.json({ ok: true });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('CashPlay server running on port ' + PORT));
+    await db.runTransaction(async (tx) 
