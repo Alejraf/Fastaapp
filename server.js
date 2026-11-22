@@ -56,6 +56,7 @@ app.post('/api/user', async (req, res) => {
         const newUser = {
           userId,
           balance: 200,
+          adActionsCount: 0,
           offersCompleted: 0,
           offerwallCoins: 0,
           streakDay: 0,
@@ -72,7 +73,7 @@ app.post('/api/user', async (req, res) => {
     }
 
     if (!memUsers[userId]) {
-      memUsers[userId] = { userId, balance: 200, offersCompleted: 0, offerwallCoins: 0, streakDay: 0, ip };
+      memUsers[userId] = { userId, balance: 200, adActionsCount: 0, streakDay: 0, ip };
     }
     return res.json(memUsers[userId]);
   } catch (err) {
@@ -98,16 +99,21 @@ app.post('/api/daily-bonus', async (req, res) => {
           return { already: true, balance: data.balance };
         }
         const nextBal = Number(data.balance || 0) + BONUS;
-        tx.update(userRef, { balance: nextBal, lastDailyBonus: today });
+        tx.update(userRef, {
+          balance: nextBal,
+          lastDailyBonus: today,
+          adActionsCount: Number(data.adActionsCount || 0) + 1
+        });
         return { already: false, balance: nextBal };
       });
       if (out.already) return res.status(429).json({ ok: false, error: 'Bônus diário já resgatado hoje.' });
       return res.json({ ok: true, balance: out.balance });
     }
 
-    const u = memUsers[userId] || { userId, balance: 200 };
+    const u = memUsers[userId] || { userId, balance: 200, adActionsCount: 0 };
     if (u.lastDailyBonus === today) return res.status(429).json({ ok: false, error: 'Bônus diário já resgatado hoje.' });
     u.balance += BONUS;
+    u.adActionsCount = (u.adActionsCount || 0) + 1;
     u.lastDailyBonus = today;
     memUsers[userId] = u;
     return res.json({ ok: true, balance: u.balance });
@@ -144,7 +150,8 @@ app.post('/api/streak-claim', async (req, res) => {
         tx.update(userRef, {
           balance: nextBal,
           streakDay: nextDay,
-          lastStreakDate: today
+          lastStreakDate: today,
+          adActionsCount: Number(data.adActionsCount || 0) + 1
         });
         return { already: false, balance: nextBal, streakDay: nextDay, reward };
       });
@@ -153,11 +160,12 @@ app.post('/api/streak-claim', async (req, res) => {
       return res.json({ ok: true, ...out });
     }
 
-    const u = memUsers[userId] || { userId, balance: 200, streakDay: 0 };
+    const u = memUsers[userId] || { userId, balance: 200, streakDay: 0, adActionsCount: 0 };
     if (u.lastStreakDate === today) return res.status(429).json({ ok: false, error: 'Sequência de hoje já resgatada.' });
     u.streakDay = u.lastStreakDate === yesterday ? (u.streakDay >= 7 ? 1 : u.streakDay + 1) : 1;
     const reward = STREAK_REWARDS[u.streakDay - 1];
     u.balance += reward;
+    u.adActionsCount = (u.adActionsCount || 0) + 1;
     u.lastStreakDate = today;
     memUsers[userId] = u;
     return res.json({ ok: true, balance: u.balance, streakDay: u.streakDay, reward });
@@ -189,7 +197,8 @@ app.post('/api/playtime-chest', async (req, res) => {
         const nextBal = Number(data.balance || 0) + REWARD;
         tx.update(userRef, {
           balance: nextBal,
-          chestStats: { date: today, count: countToday + 1 }
+          chestStats: { date: today, count: countToday + 1 },
+          adActionsCount: Number(data.adActionsCount || 0) + 1
         });
         return { limitReached: false, balance: nextBal };
       });
@@ -197,8 +206,9 @@ app.post('/api/playtime-chest', async (req, res) => {
       return res.json({ ok: true, reward: REWARD, balance: out.balance });
     }
 
-    const u = memUsers[userId] || { userId, balance: 200 };
+    const u = memUsers[userId] || { userId, balance: 200, adActionsCount: 0 };
     u.balance += REWARD;
+    u.adActionsCount = (u.adActionsCount || 0) + 1;
     memUsers[userId] = u;
     return res.json({ ok: true, reward: REWARD, balance: u.balance });
   } catch (err) {
@@ -235,6 +245,7 @@ app.post('/api/game-reward', async (req, res) => {
         tx.update(userRef, {
           balance: newBalance,
           gameStats: { date: today, count: countToday + 1 },
+          adActionsCount: Number(data.adActionsCount || 0) + 1,
           lastActive: new Date().toISOString()
         });
 
@@ -257,8 +268,9 @@ app.post('/api/game-reward', async (req, res) => {
       return res.json({ ok: true, reward: REWARD, balance: result.balance });
     }
 
-    const u = memUsers[userId] || { userId, balance: 200 };
+    const u = memUsers[userId] || { userId, balance: 200, adActionsCount: 0 };
     u.balance += REWARD;
+    u.adActionsCount = (u.adActionsCount || 0) + 1;
     memUsers[userId] = u;
     return res.json({ ok: true, reward: REWARD, balance: u.balance });
   } catch (err) {
@@ -266,7 +278,7 @@ app.post('/api/game-reward', async (req, res) => {
   }
 });
 
-// Postback S2S de Offerwalls
+// Postback S2S de Offerwalls (Listo para cuando te aprueben TimeWall / CPX / BitLabs)
 app.get('/api/postback', async (req, res) => {
   try {
     const { secret, userid, amount, txid, offer_name } = req.query;
@@ -325,10 +337,8 @@ app.get('/api/postback', async (req, res) => {
 
     if (!memTx.has(transactionId)) {
       memTx.add(transactionId);
-      const u = memUsers[userid] || { userId: userid, balance: 0, offersCompleted: 0, offerwallCoins: 0 };
+      const u = memUsers[userid] || { userId: userid, balance: 0 };
       u.balance += coins;
-      u.offersCompleted = (u.offersCompleted || 0) + 1;
-      u.offerwallCoins = (u.offerwallCoins || 0) + coins;
       memUsers[userid] = u;
     }
     return res.send('OK');
@@ -337,7 +347,7 @@ app.get('/api/postback', async (req, res) => {
   }
 });
 
-// Solicitud de retiro
+// Solicitud de retiro (Habilitado con Monetag sin bloqueo de Offerwall pendiente)
 app.post('/api/withdraw', async (req, res) => {
   try {
     const { userId, method, account, amount } = req.body || {};
@@ -354,17 +364,9 @@ app.post('/api/withdraw', async (req, res) => {
         if (!snap.exists) return { ok: false, error: 'Usuário não encontrado.' };
         const data = snap.data();
         const bal = Number(data.balance || 0);
-        const offersCompleted = Number(data.offersCompleted || 0);
-        const offerwallCoins = Number(data.offerwallCoins || 0);
+        const adActionsCount = Number(data.adActionsCount || 0);
 
         if (bal < coins) return { ok: false, error: 'Saldo insuficiente.' };
-        if (offersCompleted < 1) {
-          return {
-            ok: false,
-            error: 'Complete ao menos 1 missão no Mural de Ofertas (TimeWall) para desbloquear o saque.'
-          };
-        }
-
         const nextBal = bal - coins;
         tx.update(userRef, { balance: nextBal });
 
@@ -375,8 +377,8 @@ app.post('/api/withdraw', async (req, res) => {
           account: String(account),
           amount: coins,
           usd: (coins / 1000).toFixed(2),
-          offersCompleted,
-          offerwallCoins,
+          adActionsCount,
+          offersCompleted: Number(data.offersCompleted || 0),
           ip,
           status: 'pending',
           createdAt: new Date().toISOString()
@@ -388,12 +390,6 @@ app.post('/api/withdraw', async (req, res) => {
 
     const u = memUsers[userId];
     if (!u || u.balance < coins) return res.json({ ok: false, error: 'Saldo insuficiente.' });
-    if ((u.offersCompleted || 0) < 1) {
-      return res.json({
-        ok: false,
-        error: 'Complete ao menos 1 missão no Mural de Ofertas (TimeWall) para desbloquear o saque.'
-      });
-    }
     u.balance -= coins;
     memWithdraws.push({
       id: String(Date.now()),
@@ -401,8 +397,7 @@ app.post('/api/withdraw', async (req, res) => {
       method,
       account,
       amount: coins,
-      offersCompleted: u.offersCompleted || 0,
-      offerwallCoins: u.offerwallCoins || 0,
+      adActionsCount: u.adActionsCount || 0,
       ip,
       status: 'pending'
     });
@@ -412,7 +407,7 @@ app.post('/api/withdraw', async (req, res) => {
   }
 });
 
-// Panel de administración (/admin?secret=...)
+// Panel de administración (/admin?secret=...) con contador de anuncios vistos por usuario
 app.get('/admin', async (req, res) => {
   if (req.query.secret !== POSTBACK_SECRET) return res.status(403).send('Acceso denegado');
 
@@ -435,7 +430,7 @@ app.get('/admin', async (req, res) => {
         <td>${w.userId}</td>
         <td>${w.method}: <strong>${w.account}</strong></td>
         <td>${w.amount} ($${w.usd || (w.amount / 1000).toFixed(2)})</td>
-        <td>${w.offersCompleted || 0} ofertas (${w.offerwallCoins || 0} pts)</td>
+        <td>${w.adActionsCount || 0} anuncios</td>
         <td>${w.ip || '-'}</td>
         <td>${w.status}</td>
         <td>
@@ -454,9 +449,9 @@ app.get('/admin', async (req, res) => {
     <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
     <style>body{font-family:sans-serif;background:#0b1120;color:#fff;padding:16px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border:1px solid #253354;padding:8px}button{padding:6px 10px;margin:2px;cursor:pointer}</style>
     </head><body>
-      <h2>💎 Panel Admin CashPlay (Auditoría Rentable)</h2>
+      <h2>💎 Panel Admin CashPlay (Modo Monetag)</h2>
       <p>Usuarios totales: <strong>${usersCount}</strong> | Firestore: <strong>${db ? 'Activo' : 'Memoria'}</strong></p>
-      <table><thead><tr><th>Usuario</th><th>Cuenta</th><th>Retiro</th><th>Ingresos Offerwall</th><th>IP</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>
+      <table><thead><tr><th>Usuario</th><th>Cuenta</th><th>Retiro</th><th>Anuncios Vistos</th><th>IP</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>
       <script>
         async function act(id, status){
           await fetch('/api/admin/withdraw?secret=${encodeURIComponent(req.query.secret)}',{

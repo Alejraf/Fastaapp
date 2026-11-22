@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>CashPlay — Ganhe Recompensas Reais</title>
+  <title>CashPlay — Jogue e Ganhe Recompensas</title>
   <meta name="theme-color" content="#0b1120" />
   <link rel="manifest" href="/manifest.json" />
   <style>
@@ -110,41 +110,6 @@
     }
     .btn-streak:disabled { background: #1e293b; color: #64748b; cursor: not-allowed; }
 
-    .section-hdr {
-      display: flex; justify-content: space-between; align-items: center;
-      margin: 18px 0 10px;
-    }
-    .section-hdr h2 { margin: 0; font-size: 15px; }
-    .section-hdr span { font-size: 12px; color: var(--muted); }
-
-    .wall-card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-      padding: 14px; display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 14px; cursor: pointer;
-    }
-    .wall-left { display: flex; align-items: center; gap: 12px; }
-    .wall-ico {
-      width: 44px; height: 44px; border-radius: 12px; background: var(--card-2);
-      display: flex; align-items: center; justify-content: center; font-size: 22px;
-    }
-    .wall-title { font-weight: 800; font-size: 15px; }
-    .wall-reward { font-size: 12px; color: #fbbf24; font-weight: 700; }
-    .wall-desc { font-size: 12px; color: var(--muted); }
-    .tag-gold {
-      font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 6px;
-      background: rgba(245, 158, 11, 0.18); color: #fbbf24;
-    }
-
-    .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
-    .cat-card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-      padding: 14px; text-align: center; cursor: pointer;
-    }
-    .cat-ico { font-size: 26px; margin-bottom: 6px; }
-    .cat-title { font-weight: 800; font-size: 13px; margin-bottom: 2px; }
-    .cat-sub { font-size: 11px; color: #34d399; font-weight: 700; margin-bottom: 4px; }
-    .cat-txt { font-size: 11px; color: var(--muted); line-height: 1.3; }
-
     .box {
       background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px;
     }
@@ -157,7 +122,7 @@
       background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35);
       border-radius: 12px; padding: 12px; font-size: 12px; color: #fde68a; line-height: 1.45; margin-top: 12px;
     }
-    .legal-links { text-align: center; margin-top: 14px; font-size: 12px; }
+    .legal-links { text-align: center; margin-top: 16px; font-size: 12px; color: var(--muted); }
     .legal-links a { color: #38bdf8; text-decoration: none; margin: 0 8px; }
 
     .progress-wrap {
@@ -167,6 +132,13 @@
     .progress-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
     .progress-bar { height: 8px; background: #0f172a; border-radius: 999px; overflow: hidden; }
     .progress-fill { height: 100%; background: linear-gradient(90deg, #10b981, #38bdf8); width: 0%; transition: width 0.3s; }
+
+    .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+    .how-item {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 10px 8px; text-align: center; font-size: 11px; color: #cbd5e1;
+    }
+    .how-item strong { display: block; color: #38bdf8; font-size: 13px; margin-bottom: 2px; }
 
     nav.bottom-nav {
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
@@ -213,10 +185,17 @@
     <!-- PESTAÑA GANHAR -->
     <section id="tab-earn" class="tab-view active">
       <div class="hero-card">
-        <div class="hero-badge" data-i18n="heroBadge">🔥 RECOMPENSAS ATIVAS</div>
-        <h1 data-i18n="heroTitle">Instale jogos e apps, cumpra missões e saque dinheiro real</h1>
-        <p class="hero-sub">1.000 moedas = $1.00 USD / R$ 5,00</p>
+        <div class="hero-badge" data-i18n="heroBadge">🔥 JOGUE E ACUMULE MOEDAS</div>
+        <h1 data-i18n="heroTitle">Divirta-se nos mini-jogos, abra baús diários e saque via PIX ou PayPal</h1>
+        <p class="hero-sub">1.000 moedas = $1.00 USD / R$ 5,00 • Sem precisar baixar nada</p>
         <button class="btn-primary" id="btn-daily-bonus" data-i18n="dailyBtn">🎬 Bônus Diário (+10 moedas • Ver Anúncio)</button>
+      </div>
+
+      <!-- RESUMEN DE COMO FUNCIONA (EXIGIDO POR REDES PUBLICITARIAS) -->
+      <div class="how-grid">
+        <div class="how-item"><strong>1. Jogue</strong>Suba de nível no Arcade</div>
+        <div class="how-item"><strong>2. Abra Baús</strong>Bônus ativo a cada 3 min</div>
+        <div class="how-item"><strong>3. Saque</strong>PIX, PayPal ou USDT</div>
       </div>
 
       <!-- RACHA DIARIA DE 7 DÍAS -->
@@ -240,57 +219,14 @@
         <div class="progress-bar"><div class="progress-fill" id="goal-fill"></div></div>
       </div>
 
-      <!-- MURALS DE OFERTAS PRIMERO -->
-      <div class="section-hdr">
-        <h2 data-i18n="wallsTitle">Murais de Ofertas (Ganho Rápido)</h2>
-        <span data-i18n="tapOpen">Toque para abrir</span>
-      </div>
-
-      <div class="wall-card" onclick="openTimeWall()">
-        <div class="wall-left">
-          <div class="wall-ico">🧱</div>
-          <div>
-            <div class="wall-title">TimeWall Oficial</div>
-            <div class="wall-reward">+150 a +2.500 moedas por missão</div>
-            <div class="wall-desc" data-i18n="twDesc">Jogos, Pesquisas, Cliques e Cadastros</div>
-          </div>
-        </div>
-        <span class="tag-gold">MAIS PAGA</span>
-      </div>
-
       <!-- SECCIÓN ARCADE + COFRE DE 3 MINUTOS ACTIVOS -->
       <div id="cashplay-arcade-root"></div>
 
-      <div class="section-hdr">
-        <h2 data-i18n="catTitle">Acesso Direto por Categoria</h2>
-        <span>4 categorias ativas</span>
-      </div>
-
-      <div class="cat-grid">
-        <div class="cat-card" onclick="openTimeWall()">
-          <div class="cat-ico">🎮</div>
-          <div class="cat-title">Jogos e Apps</div>
-          <div class="cat-sub">+500 a +2.500 moedas</div>
-          <div class="cat-txt">Instale jogos verificados e receba moedas automáticas</div>
-        </div>
-        <div class="cat-card" onclick="openTimeWall()">
-          <div class="cat-ico">📋</div>
-          <div class="cat-title">Pesquisas Pagas</div>
-          <div class="cat-sub">+100 a +800 moedas</div>
-          <div class="cat-txt">Responda pesquisas rápidas e ganhe na hora</div>
-        </div>
-        <div class="cat-card" onclick="openTimeWall()">
-          <div class="cat-ico">⚡</div>
-          <div class="cat-title">Tarefas Rápidas</div>
-          <div class="cat-sub">+20 a +300 moedas</div>
-          <div class="cat-txt">Microtarefas verificadas com crédito instantâneo</div>
-        </div>
-        <div class="cat-card" onclick="openTimeWall()">
-          <div class="cat-ico">🖱️</div>
-          <div class="cat-title">Cliques e Vídeos</div>
-          <div class="cat-sub">+5 a +50 moedas</div>
-          <div class="cat-txt">Visite sites patrocinados e acumule pontos</div>
-        </div>
+      <!-- ENLACES LEGALES VISIBLES PARA APROBACIÓN DE OFFERWALLS -->
+      <div class="legal-links">
+        <a href="#" onclick="showLegal('terms');return false;">Termos de Uso</a> •
+        <a href="#" onclick="showLegal('privacy');return false;">Privacidade</a> •
+        <a href="mailto:suporte@cashplayapp.sbs">Contato</a>
       </div>
     </section>
 
@@ -298,7 +234,7 @@
     <section id="tab-invite" class="tab-view">
       <div class="box">
         <h2 style="margin-top:0;">🤝 Convide Amigos (10% Vitalício)</h2>
-        <p style="font-size:13px;color:var(--muted);">Ganhe 10% de todas as moedas que seus convidados conquistarem nos murais de ofertas.</p>
+        <p style="font-size:13px;color:var(--muted);">Compartilhe seu link no TikTok ou WhatsApp e ganhe 10% de bônus sobre as conquistas dos seus convidados.</p>
         <label>Seu link exclusivo de indicação:</label>
         <input type="text" id="ref-link-input" readonly />
         <button class="btn-primary" onclick="copyRefLink()">📋 Copiar Link de Convite</button>
@@ -328,11 +264,11 @@
         <button class="btn-primary" id="btn-withdraw" onclick="submitWithdraw()">Solicitar Saque</button>
 
         <div class="notice-box">
-          🔒 <strong>Verificação de Identidade e Antifraude:</strong> Para liberar o primeiro saque, é necessário ter completado ao menos <strong>1 missão no Mural de Ofertas (TimeWall)</strong>. Todos os saques passam por auditoria manual em até 24-48h. Contas com VPN, emuladores ou múltiplos cadastros serão bloqueadas.
+          🔒 <strong>Verificação de Segurança e Antifraude:</strong> Todos os saques (PIX, PayPal ou USDT) passam por auditoria manual de atividade em até 24-48h antes do envio. Contas com VPN, bots, emuladores ou múltiplos cadastros serão bloqueadas.
         </div>
 
         <div class="legal-links">
-          <a href="#" onclick="showLegal('terms');return false;">Termos de Uso</a>
+          <a href="#" onclick="showLegal('terms');return false;">Termos de Uso</a> •
           <a href="#" onclick="showLegal('privacy');return false;">Política de Privacidade</a>
         </div>
       </div>
@@ -344,8 +280,8 @@
         <h2 style="margin-top:0;">👤 Meu Perfil & Segurança</h2>
         <p style="font-size:13px;"><strong>ID da Conta:</strong> <span id="prof-uid">-</span></p>
         <p style="font-size:13px;"><strong>Saldo Atual:</strong> <span id="prof-bal">0</span> moedas</p>
-        <p style="font-size:13px;"><strong>Missões Offerwall concluídas:</strong> <span id="prof-offers">0</span></p>
         <p style="font-size:13px;color:#34d399;">🛡️ Escudo Antifraude Ativo (Dispositivo Verificado)</p>
+        <p style="font-size:12px;color:var(--muted);">Suporte oficial: suporte@cashplayapp.sbs</p>
       </div>
     </section>
   </main>
@@ -361,7 +297,6 @@
 
   <script>
     window.MONETAG_DIRECT_LINK = 'https://uplcm.com/4/12319298';
-    const TIMEWALL_OID = '1be50b5db408a909';
     const STREAK_REWARDS = [5, 8, 10, 12, 15, 18, 35];
 
     function toast(msg) {
@@ -402,14 +337,11 @@
       }
     }
 
-    window.updateBalanceUI = function (coins, offersCount) {
+    window.updateBalanceUI = function (coins) {
       const c = Number(coins || 0);
       document.getElementById('hdr-coins').textContent = c;
       document.getElementById('hdr-usd').textContent = '$' + (c / 1000).toFixed(2);
       document.getElementById('prof-bal').textContent = c;
-      if (typeof offersCount === 'number') {
-        document.getElementById('prof-offers').textContent = offersCount;
-      }
       const pct = Math.min(100, Math.round((c / 2000) * 100));
       document.getElementById('goal-pct').textContent = pct + '%';
       document.getElementById('goal-fill').style.width = pct + '%';
@@ -431,7 +363,7 @@
         });
         const data = await res.json();
         if (data && typeof data.balance === 'number') {
-          window.updateBalanceUI(data.balance, Number(data.offersCompleted || 0));
+          window.updateBalanceUI(data.balance);
           const claimedToday = data.lastStreakDate === today;
           const nextDay = claimedToday ? Number(data.streakDay || 1) : Math.min(7, Number(data.streakDay || 0) + 1);
           renderStreakUI(nextDay, claimedToday);
@@ -469,12 +401,6 @@
           toast(data.error);
         }
       } catch (e) {}
-    }
-
-    function openTimeWall() {
-      const uid = getUserId();
-      const url = `https://timewall.io/users/login?oid=${TIMEWALL_OID}&uid=${encodeURIComponent(uid)}`;
-      window.open(url, '_blank', 'noopener');
     }
 
     document.getElementById('btn-daily-bonus').onclick = function () {
@@ -556,8 +482,8 @@
     function showLegal(type) {
       alert(
         type === 'terms'
-          ? 'Termos de Uso CashPlay: É proibido o uso de VPN, proxies, emuladores, bots ou múltiplas contas. Para sacar é necessário concluir ao menos 1 missão no mural de ofertas. Pagamentos auditados em até 48h.'
-          : 'Política de Privacidade CashPlay: Coletamos apenas ID de sessão, endereço IP para prevenção de fraude e chave de pagamento informada voluntariamente no saque.'
+          ? 'Termos de Uso CashPlay: É proibido o uso de VPN, proxies, emuladores, bots ou múltiplas contas. Os saques a partir de 2.000 moedas ($2.00 USD) são auditados manualmente em até 48h.'
+          : 'Política de Privacidade CashPlay: Coletamos apenas ID de sessão, endereço IP para prevenção de fraude e chave de pagamento informada voluntariamente no saque. Contato: suporte@cashplayapp.sbs'
       );
     }
 
@@ -567,22 +493,14 @@
       this.textContent = currentLang === 'pt' ? '🇧🇷 PT' : '🇪🇸 ES';
       const dict = {
         pt: {
-          heroBadge: '🔥 RECOMPENSAS ATIVAS',
-          heroTitle: 'Instale jogos e apps, cumpra missões e saque dinheiro real',
-          dailyBtn: '🎬 Bônus Diário (+10 moedas • Ver Anúncio)',
-          wallsTitle: 'Murais de Ofertas (Ganho Rápido)',
-          tapOpen: 'Toque para abrir',
-          twDesc: 'Jogos, Pesquisas, Cliques e Cadastros',
-          catTitle: 'Acesso Direto por Categoria'
+          heroBadge: '🔥 JOGUE E ACUMULE MOEDAS',
+          heroTitle: 'Divirta-se nos mini-jogos, abra baús diários e saque via PIX ou PayPal',
+          dailyBtn: '🎬 Bônus Diário (+10 moedas • Ver Anúncio)'
         },
         es: {
-          heroBadge: '🔥 RECOMPENSAS ACTIVAS',
-          heroTitle: 'Instala juegos y apps, cumple misiones y retira dinero real',
-          dailyBtn: '🎬 Bono Diario (+10 monedas • Ver Anuncio)',
-          wallsTitle: 'Muros de Ofertas (Ganancia Rápida)',
-          tapOpen: 'Toca para abrir',
-          twDesc: 'Juegos, Encuestas, Clics y Registros',
-          catTitle: 'Acceso Directo por Categoría'
+          heroBadge: '🔥 JUEGA Y ACUMULA MONEDAS',
+          heroTitle: 'Diviértete en los mini-juegos, abre cofres diarios y retira por PayPal o USDT',
+          dailyBtn: '🎬 Bono Diario (+10 monedas • Ver Anuncio)'
         }
       };
       document.querySelectorAll('[data-i18n]').forEach((el) => {
