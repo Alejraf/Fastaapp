@@ -194,7 +194,7 @@
       <!-- RESUMEN DE COMO FUNCIONA (EXIGIDO POR REDES PUBLICITARIAS) -->
       <div class="how-grid">
         <div class="how-item"><strong>1. Jogue</strong>Suba de nível no Arcade</div>
-        <div class="how-item"><strong>2. Abra Baús</strong>Bônus ativo a cada 3 min</div>
+        <div class="how-item"><strong>2. Abra Baús</strong>1º baú em 30s de jogo</div>
         <div class="how-item"><strong>3. Saque</strong>PIX, PayPal ou USDT</div>
       </div>
 
@@ -213,10 +213,11 @@
       <!-- BARRA DE PROGRESO HACIA EL RETIRO -->
       <div class="progress-wrap">
         <div class="progress-top">
-          <span>🎯 Meta para Saque (2.000 moedas)</span>
+          <span id="goal-label">🎯 Meta para Saque (2.000 moedas)</span>
           <strong id="goal-pct">0%</strong>
         </div>
         <div class="progress-bar"><div class="progress-fill" id="goal-fill"></div></div>
+        <div id="goal-rem" style="font-size:11px;color:#94a3b8;margin-top:5px;">Faltam 2.000 moedas para o 1º saque PIX / PayPal</div>
       </div>
 
       <!-- SECCIÓN ARCADE + COFRE DE 3 MINUTOS ACTIVOS -->
@@ -345,6 +346,13 @@
       const pct = Math.min(100, Math.round((c / 2000) * 100));
       document.getElementById('goal-pct').textContent = pct + '%';
       document.getElementById('goal-fill').style.width = pct + '%';
+      const remEl = document.getElementById('goal-rem');
+      if (remEl) {
+        const rem = Math.max(0, 2000 - c);
+        remEl.textContent = rem === 0
+          ? '🎉 Meta atingida! Você já pode solicitar seu saque na aba Sacar.'
+          : `Faltam ${rem.toLocaleString()} moedas para liberar seu saque mínimo ($2.00 USD)`;
+      }
     };
 
     window.loadUser = async function () {

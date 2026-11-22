@@ -216,16 +216,17 @@ app.post('/api/playtime-chest', async (req, res) => {
   }
 });
 
-// Recompensa de subida de nivel en CashPlay Arcade (+3 monedas, máx. 10/día)
+// Recompensa de subida de nivel en CashPlay Arcade (+3 monedas o x2 = +6 monedas, máx. 10 cupos/día)
 app.post('/api/game-reward', async (req, res) => {
   try {
-    const { userId, game, level } = req.body || {};
+    const { userId, game, level, multiplier } = req.body || {};
     if (!userId || typeof userId !== 'string') {
       return res.status(400).json({ ok: false, error: 'INVALID_USER' });
     }
 
+    const mult = Number(multiplier) === 2 ? 2 : 1;
     const today = new Date().toISOString().slice(0, 10);
-    const REWARD = 3;
+    const BASE_REWARD = 3;
     const DAILY_MAX = 10;
 
     if (db) {
@@ -241,10 +242,13 @@ app.post('/api/game-reward', async (req, res) => {
           return { limitReached: true, balance: Number(data.balance || 0) };
         }
 
-        const newBalance = Number(data.balance || 0) + REWARD;
+        const slotsUsed = Math.min(mult, DAILY_MAX - countToday);
+        const reward = BASE_REWARD * slotsUsed;
+        const newBalance = Number(data.balance || 0) + reward;
+
         tx.update(userRef, {
           balance: newBalance,
-          gameStats: { date: today, count: countToday + 1 },
+          gameStats: { date: today, count: countToday + slotsUsed },
           adActionsCount: Number(data.adActionsCount || 0) + 1,
           lastActive: new Date().toISOString()
         });
@@ -252,27 +256,28 @@ app.post('/api/game-reward', async (req, res) => {
         const txRef = db.collection('transactions').doc();
         tx.set(txRef, {
           userId,
-          type: 'game_level_up',
+          type: slotsUsed === 2 ? 'game_level_up_x2' : 'game_level_up',
           game: String(game || 'Arcade').slice(0, 40),
           level: Number(level || 1),
-          amount: REWARD,
+          amount: reward,
           createdAt: new Date().toISOString()
         });
 
-        return { limitReached: false, balance: newBalance };
+        return { limitReached: false, balance: newBalance, reward, slotsUsed };
       });
 
       if (result.limitReached) {
         return res.status(429).json({ ok: false, error: 'DAILY_LIMIT_REACHED', balance: result.balance });
       }
-      return res.json({ ok: true, reward: REWARD, balance: result.balance });
+      return res.json({ ok: true, reward: result.reward, slotsUsed: result.slotsUsed, balance: result.balance });
     }
 
     const u = memUsers[userId] || { userId, balance: 200, adActionsCount: 0 };
-    u.balance += REWARD;
+    const reward = BASE_REWARD * mult;
+    u.balance += reward;
     u.adActionsCount = (u.adActionsCount || 0) + 1;
     memUsers[userId] = u;
-    return res.json({ ok: true, reward: REWARD, balance: u.balance });
+    return res.json({ ok: true, reward, slotsUsed: mult, balance: u.balance });
   } catch (err) {
     return res.status(500).json({ ok: false, error: 'SERVER_ERROR' });
   }

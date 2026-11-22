@@ -1,12 +1,12 @@
-// CashPlay Arcade + Playtime Chest v2.9
+// CashPlay Arcade + Playtime Chest v3.0
 // Incluye:
-// - Cofre de Tiempo Activo (180 segundos de jugadas activas -> +5 monedas al abrir con anuncio Monetag, máx. 6/día)
-// - 3 juegos clásicos legales: 2048 Fusion, Memory Match, Neon Serpent (+3 monedas/nivel, máx. 10 niveles/día)
+// - Cofre de Tiempo Activo escalonado (1º baú en 30s, 2º en 90s, siguientes en 180s -> +5 monedas al abrir con anuncio Monetag, máx. 6/día)
+// - Multiplicador x2 voluntario al subir de nivel (+6 monedas vs +3 monedas, respetando el tope diario de 10 cupos)
+// - 3 juegos clásicos legales: 2048 Fusion, Memory Match, Neon Serpent
 
 (function () {
   const DAILY_LEVEL_LIMIT = 10;
   const LEVEL_REWARD_COINS = 3;
-  const CHEST_TARGET_SECONDS = 180; // 3 minutos jugando activamente
   const CHEST_REWARD_COINS = 5;
   const CHEST_DAILY_LIMIT = 6;
   const AD_WAIT_SECONDS = 5;
@@ -16,6 +16,13 @@
 
   function getTodayKey() {
     return new Date().toISOString().slice(0, 10);
+  }
+
+  function getChestTargetSeconds() {
+    const used = getChestClaims();
+    if (used === 0) return 30;  // 1º cofre del día en 30s para enganchar rápido
+    if (used === 1) return 90;  // 2º cofre en 90s
+    return 180;                 // 3º al 6º cofre en 180s
   }
 
   function getDailyClaims() {
@@ -28,8 +35,8 @@
     }
   }
 
-  function incrementDailyClaims() {
-    const count = getDailyClaims() + 1;
+  function incrementDailyClaims(slots) {
+    const count = Math.min(DAILY_LEVEL_LIMIT, getDailyClaims() + Number(slots || 1));
     localStorage.setItem('cp_game_claims', JSON.stringify({ date: getTodayKey(), count }));
     updateQuotaBadge();
     return count;
@@ -54,10 +61,11 @@
   // Registra actividad real del jugador (solo suma tiempo mientras juega de verdad)
   function registerGameActivity() {
     const now = Date.now();
+    const target = getChestTargetSeconds();
     if (lastActionTs > 0) {
-      const delta = Math.min(8, (now - lastActionTs) / 1000); // Máx 8s entre movimientos
-      if (delta > 0.2 && activeSeconds < CHEST_TARGET_SECONDS) {
-        activeSeconds = Math.min(CHEST_TARGET_SECONDS, activeSeconds + delta);
+      const delta = Math.min(8, (now - lastActionTs) / 1000);
+      if (delta > 0.2 && activeSeconds < target) {
+        activeSeconds = Math.min(target, activeSeconds + delta);
         updateChestUI();
       }
     }
@@ -71,21 +79,22 @@
     if (!bar || !txt || !btn) return;
 
     const used = getChestClaims();
-    const pct = Math.min(100, Math.round((activeSeconds / CHEST_TARGET_SECONDS) * 100));
+    const target = getChestTargetSeconds();
+    const pct = Math.min(100, Math.round((activeSeconds / target) * 100));
     bar.style.width = pct + '%';
 
     if (used >= CHEST_DAILY_LIMIT) {
       txt.textContent = `Baús de hoje concluídos (${used}/${CHEST_DAILY_LIMIT})`;
       btn.disabled = true;
       btn.textContent = 'Limite diário';
-    } else if (activeSeconds >= CHEST_TARGET_SECONDS) {
-      txt.textContent = `🎁 Baú pronto! (${used}/${CHEST_DAILY_LIMIT} hoje)`;
+    } else if (activeSeconds >= target) {
+      txt.textContent = `🎁 Baú #${used + 1} pronto! (${used}/${CHEST_DAILY_LIMIT} hoje)`;
       btn.disabled = false;
       btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
       btn.textContent = `Abrir (+${CHEST_REWARD_COINS} 🪙)`;
     } else {
-      const rem = Math.ceil(CHEST_TARGET_SECONDS - activeSeconds);
-      txt.textContent = `⏳ Baú Ativo: jogue mais ${rem}s (${used}/${CHEST_DAILY_LIMIT})`;
+      const rem = Math.ceil(target - activeSeconds);
+      txt.textContent = `⏳ Baú #${used + 1}: jogue mais ${rem}s (${used}/${CHEST_DAILY_LIMIT})`;
       btn.disabled = true;
       btn.style.background = '#1e293b';
       btn.textContent = `${pct}%`;
@@ -96,13 +105,34 @@
     const el = document.getElementById('cp-games-quota');
     if (el) {
       const used = getDailyClaims();
-      el.textContent = `${used}/${DAILY_LEVEL_LIMIT} níveis premiados hoje (+${LEVEL_REWARD_COINS} moedas/nível)`;
+      el.textContent = `${used}/${DAILY_LEVEL_LIMIT} bônus de nível usados hoje (até +${LEVEL_REWARD_COINS * 2} moedas/nível)`;
+    }
+  }
+
+  function triggerAdForLevel(gameName, levelReached, multiplier, activeBtn) {
+    const directLink = window.MONETAG_DIRECT_LINK || 'https://uplcm.com/4/12319298';
+    localStorage.setItem(
+      'cp_pending_game_reward',
+      JSON.stringify({
+        type: 'level',
+        game: gameName,
+        level: levelReached,
+        multiplier: multiplier,
+        openedAt: Date.now()
+      })
+    );
+    window.open(directLink, '_blank', 'noopener');
+    if (activeBtn) {
+      activeBtn.disabled = true;
+      activeBtn.textContent = '⏳ Aguardando confirmação (5s)...';
     }
   }
 
   function showLevelUpModal(gameName, levelReached, onContinue) {
     const used = getDailyClaims();
-    const canClaim = used < DAILY_LEVEL_LIMIT;
+    const remainingSlots = DAILY_LEVEL_LIMIT - used;
+    const canClaim = remainingSlots > 0;
+    const canDouble = remainingSlots >= 2;
 
     let overlay = document.getElementById('cp-levelup-overlay');
     if (!overlay) {
@@ -119,15 +149,23 @@
         <p style="margin:0 0 14px;font-size:13px;color:#9fb0d6;">${gameName}</p>
         ${
           canClaim
-            ? `<button id="cp-claim-level-btn" style="width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:10px;">
-                🎬 Ver Anúncio e Ganhar +${LEVEL_REWARD_COINS} Moedas
-               </button>`
+            ? `
+              ${
+                canDouble
+                  ? `<button id="cp-claim-x2-btn" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#0b1120;font-weight:800;font-size:14px;cursor:pointer;margin-bottom:9px;">
+                      🔥 Duplicar para +${LEVEL_REWARD_COINS * 2} Moedas (Ver Patrocinador)
+                     </button>`
+                  : ''
+              }
+              <button id="cp-claim-level-btn" style="width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:10px;">
+                🎬 Coletar +${LEVEL_REWARD_COINS} Moedas (Ver Anúncio)
+              </button>`
             : `<div style="padding:10px;border-radius:10px;background:#1e293b;color:#94a3b8;font-size:12px;margin-bottom:10px;">
-                Limite diário de ${DAILY_LEVEL_LIMIT} recompensas atingido. Continue jogando livremente!
+                Limite diário de ${DAILY_LEVEL_LIMIT} bônus atingido. Continue jogando livremente!
                </div>`
         }
-        <button id="cp-skip-level-btn" style="width:100%;padding:10px;border:1px solid #334155;border-radius:10px;background:transparent;color:#cbd5e1;font-size:13px;cursor:pointer;">
-          Continuar sem recompensa
+        <button id="cp-skip-level-btn" style="width:100%;padding:9px;border:1px solid #334155;border-radius:10px;background:transparent;color:#94a3b8;font-size:12px;cursor:pointer;">
+          Continuar sem bônus
         </button>
       </div>
     `;
@@ -138,28 +176,19 @@
       if (onContinue) onContinue();
     };
 
+    const claimX2Btn = document.getElementById('cp-claim-x2-btn');
+    if (claimX2Btn) {
+      claimX2Btn.onclick = () => triggerAdForLevel(gameName, levelReached, 2, claimX2Btn);
+    }
+
     const claimBtn = document.getElementById('cp-claim-level-btn');
     if (claimBtn) {
-      claimBtn.onclick = () => {
-        const directLink = window.MONETAG_DIRECT_LINK || 'https://uplcm.com/4/12319298';
-        localStorage.setItem(
-          'cp_pending_game_reward',
-          JSON.stringify({
-            type: 'level',
-            game: gameName,
-            level: levelReached,
-            openedAt: Date.now()
-          })
-        );
-        window.open(directLink, '_blank', 'noopener');
-        claimBtn.disabled = true;
-        claimBtn.textContent = 'Aguardando confirmação do anúncio...';
-      };
+      claimBtn.onclick = () => triggerAdForLevel(gameName, levelReached, 1, claimBtn);
     }
   }
 
   async function checkPendingArcadeRewards() {
-    // 1. Verificar recompensa de subida de nivel
+    // 1. Verificar recompensa de subida de nivel (x1 o x2)
     const rawLevel = localStorage.getItem('cp_pending_game_reward');
     if (rawLevel) {
       try {
@@ -168,18 +197,19 @@
           localStorage.removeItem('cp_pending_game_reward');
           const userId = localStorage.getItem('cashplay_uid');
           if (userId && getDailyClaims() < DAILY_LEVEL_LIMIT) {
+            const mult = Number(data.multiplier) === 2 ? 2 : 1;
             const res = await fetch('/api/game-reward', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId, game: data.game, level: data.level })
+              body: JSON.stringify({ userId, game: data.game, level: data.level, multiplier: mult })
             });
             const json = await res.json();
             if (json && json.ok) {
-              incrementDailyClaims();
+              incrementDailyClaims(json.slotsUsed || mult);
               if (typeof window.updateBalanceUI === 'function') window.updateBalanceUI(json.balance);
               const overlay = document.getElementById('cp-levelup-overlay');
               if (overlay) overlay.style.display = 'none';
-              alert(`+${LEVEL_REWARD_COINS} moedas creditadas com sucesso!`);
+              alert(`+${json.reward} moedas creditadas com sucesso!`);
             }
           }
         }
@@ -489,10 +519,10 @@
 
     root.innerHTML = `
       <div style="background:#131c31;border:1px solid #253354;border-radius:16px;padding:16px;margin-bottom:18px;">
-        <!-- COFRE DE TIEMPO ACTIVO -->
+        <!-- COFRE DE TIEMPO ACTIVO ESCALONADO -->
         <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
           <div style="flex:1;">
-            <div id="cp-chest-txt" style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:6px;">⏳ Baú Ativo: jogue 180s</div>
+            <div id="cp-chest-txt" style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:6px;">⏳ Baú #1: jogue 30s</div>
             <div style="height:6px;background:#1e293b;border-radius:999px;overflow:hidden;">
               <div id="cp-chest-bar" style="height:100%;width:0%;background:#10b981;transition:width 0.3s;"></div>
             </div>
@@ -519,7 +549,7 @@
     updateChestUI();
 
     document.getElementById('cp-chest-btn').onclick = () => {
-      if (activeSeconds < CHEST_TARGET_SECONDS || getChestClaims() >= CHEST_DAILY_LIMIT) return;
+      if (activeSeconds < getChestTargetSeconds() || getChestClaims() >= CHEST_DAILY_LIMIT) return;
       const directLink = window.MONETAG_DIRECT_LINK || 'https://uplcm.com/4/12319298';
       localStorage.setItem('cp_pending_chest_reward', JSON.stringify({ openedAt: Date.now() }));
       window.open(directLink, '_blank', 'noopener');
