@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>CashPlay — Jogue Mini-Jogos Grátis e Ganhe Recompensas via PIX e PayPal</title>
-  <meta name="description" content="Divirta-se nos 6 mini-jogos arcade do CashPlay (Knife Hit, Plinko, Stack Tower, Helix Smash, Gem Slash e Gravity), complete tarefas no TimeWall e troque suas moedas por recompensas via PIX, PayPal ou USDT." />
-  <meta name="keywords" content="CashPlay, app para ganhar dinheiro jogando, mini jogos que pagam no pix, jogar e ganhar recompensas, timewall offerwall, app de recompensas paypal" />
+  <meta name="description" content="Divirta-se nos 6 mini-jogos arcade do CashPlay (Knife Hit, Plinko, Stack Tower, Helix Smash, Gem Slash e Gravity), abra baús diários e troque suas moedas por recompensas via PIX, PayPal ou USDT sem precisar baixar nada." />
+  <meta name="keywords" content="CashPlay, app para ganhar dinheiro jogando, mini jogos que pagam no pix, jogar e ganhar recompensas, jogos arcade online gratis, app de recompensas paypal" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://cashplayapp.sbs/" />
 
@@ -13,7 +13,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="CashPlay" />
   <meta property="og:title" content="CashPlay — Jogue Mini-Jogos Arcade e Acumule Recompensas" />
-  <meta property="og:description" content="6 mini-jogos viciantes + muro de tarefas TimeWall. Suba de nível, complete pesquisas e resgate via PIX ou PayPal." />
+  <meta property="og:description" content="6 mini-jogos viciantes direto no navegador. Suba de nível, gire o Reator de Energia, abra baús e resgate via PIX ou PayPal." />
   <meta property="og:url" content="https://cashplayapp.sbs/" />
   <meta property="og:image" content="https://cashplayapp.sbs/icon-512.png" />
 
@@ -31,7 +31,7 @@
       "price": "0",
       "priceCurrency": "USD"
     },
-    "description": "Plataforma de mini-jogos arcade casual e tarefas patrocinadas com resgate via PIX, PayPal e USDT."
+    "description": "Plataforma de mini-jogos arcade casual com sistema de recompensas diárias, baús de tempo ativo e resgate via PIX, PayPal e USDT."
   }
   </script>
   <meta name="theme-color" content="#0b1120" />
@@ -117,83 +117,6 @@
     }
     .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    /* TARJETA DESTACADA TIMEWALL OFFERWALL */
-    .timewall-card {
-      background: linear-gradient(135deg, #172554 0%, #1e3a8a 55%, #0f766e 100%);
-      border: 1px solid #38bdf8;
-      border-radius: 18px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 10px 26px rgba(37, 99, 235, 0.25);
-    }
-    .tw-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    .tw-title-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .tw-title-row h3 {
-      margin: 0;
-      font-size: 17px;
-      font-weight: 900;
-      color: #fff;
-    }
-    .tw-pill {
-      background: #facc15;
-      color: #0b1120;
-      font-size: 10.5px;
-      font-weight: 900;
-      padding: 3px 8px;
-      border-radius: 999px;
-    }
-    .tw-desc {
-      margin: 5px 0 0;
-      font-size: 12.5px;
-      color: #dbeafe;
-      line-height: 1.4;
-    }
-    .tw-tags {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-    .tw-tag {
-      background: rgba(15, 23, 42, 0.55);
-      border: 1px solid rgba(147, 197, 253, 0.35);
-      color: #e0f2fe;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 8px;
-      border-radius: 8px;
-    }
-    .btn-timewall {
-      width: 100%;
-      padding: 13px 16px;
-      border: none;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #10b981, #059669);
-      color: #fff;
-      font-weight: 900;
-      font-size: 14px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
-    }
-    .btn-timewall:active {
-      transform: scale(0.98);
-    }
-
     /* RACHA DIARIA 7 DÍAS */
     .streak-card {
       background: var(--card); border: 1px solid var(--border); border-radius: 16px;
@@ -265,6 +188,12 @@
       padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
       z-index: 9999; display: none; max-width: 90%; text-align: center;
     }
+    /* Evitar que In-Page Push tape la cabecera del saldo */
+    body > div[style*="position: fixed"][style*="top: 0"],
+    body > div[style*="position:fixed"][style*="top:0"],
+    body > div[style*="z-index: 2147483647"] {
+      top: 64px !important;
+    }
   </style>
 </head>
 <body>
@@ -293,36 +222,15 @@
     <section id="tab-earn" class="tab-view active">
       <div class="hero-card">
         <div class="hero-badge" data-i18n="heroBadge">🔥 JOGUE E ACUMULE MOEDAS</div>
-        <h1 data-i18n="heroTitle">Divirta-se nos mini-jogos, complete tarefas e saque via PIX ou PayPal</h1>
-        <p class="hero-sub">1.000 moedas = $1.00 USD / R$ 5,00 • Crédito automático</p>
+        <h1 data-i18n="heroTitle">Divirta-se nos mini-jogos, abra baús diários e saque via PIX ou PayPal</h1>
+        <p class="hero-sub">1.000 moedas = $1.00 USD / R$ 5,00 • Sem precisar baixar nada</p>
         <button class="btn-primary" id="btn-daily-bonus" data-i18n="dailyBtn">🎬 Bônus Diário (+10 moedas • Ver Anúncio)</button>
       </div>
 
-      <!-- TARJETA OFICIAL TIMEWALL OFFERWALL -->
-      <div class="timewall-card">
-        <div class="tw-top">
-          <div>
-            <div class="tw-title-row">
-              <h3>⚡ TimeWall Tarefas & Pesquisas</h3>
-              <span class="tw-pill">PAGA +150 A +2.500 🪙</span>
-            </div>
-            <p class="tw-desc" data-i18n="twDesc">Ganhe moedas rápidas clicando em sites, respondendo pesquisas e completando micro-tarefas.</p>
-          </div>
-        </div>
-        <div class="tw-tags">
-          <span class="tw-tag">🖱️ Cliques Rápidos</span>
-          <span class="tw-tag">📋 Pesquisas</span>
-          <span class="tw-tag">✅ Crédito Automático</span>
-        </div>
-        <button class="btn-timewall" id="btn-open-timewall" onclick="openTimeWallOfferwall()">
-          <span>🚀 Abrir Mural TimeWall</span>
-        </button>
-      </div>
-
-      <!-- RESUMEN DE COMO FUNCIONA -->
+      <!-- RESUMEN DE COMO FUNCIONA (EXIGIDO POR REDES PUBLICITARIAS) -->
       <div class="how-grid">
-        <div class="how-item"><strong>1. Tarefas</strong>Complete no TimeWall</div>
-        <div class="how-item"><strong>2. Jogue</strong>Suba de nível no Arcade</div>
+        <div class="how-item"><strong>1. Jogue</strong>Suba de nível no Arcade</div>
+        <div class="how-item"><strong>2. Abra Baús</strong>1º baú em 30s de jogo</div>
         <div class="how-item"><strong>3. Saque</strong>PIX, PayPal ou USDT</div>
       </div>
 
@@ -348,13 +256,13 @@
         <div id="goal-rem" style="font-size:11px;color:#94a3b8;margin-top:5px;">Faltam 2.000 moedas para o 1º saque PIX / PayPal</div>
       </div>
 
-      <!-- SECCIÓN ARCADE + COFRE DE TIEMPO ACTIVO -->
+      <!-- SECCIÓN ARCADE + COFRE DE 3 MINUTOS ACTIVOS -->
       <div id="cashplay-arcade-root"></div>
 
       <!-- GUIA RÁPIDO PARA BUSCADORES (SEO) -->
       <div style="background:#131c31;border:1px solid #253354;border-radius:14px;padding:13px 14px;margin-bottom:14px;font-size:11.5px;color:#94a3b8;line-height:1.5;">
         <strong style="color:#e2e8f0;display:block;margin-bottom:4px;">Sobre o CashPlay Arcade & Recompensas</strong>
-        O <strong>CashPlay</strong> é um portal gratuito de mini-jogos casuais online (<em>Knife Hit Neon, Plinko Arcade, Stack Tower, Helix Smash, Gem Slasher e Gravity Dash</em>) e tarefas patrocinadas via <strong>TimeWall</strong> onde você acumula pontos e troca suas moedas por recompensas via <strong>PIX, PayPal ou USDT</strong>.
+        O <strong>CashPlay</strong> é um portal gratuito de mini-jogos casuais online (<em>Knife Hit Neon, Plinko Arcade, Stack Tower, Helix Smash, Gem Slasher e Gravity Dash</em>) onde você acumula pontos jogando direto no navegador ou no app Android e troca suas moedas por recompensas via <strong>PIX, PayPal ou USDT</strong>.
       </div>
 
       <!-- ENLACES LEGALES VISIBLES PARA APROBACIÓN DE OFFERWALLS -->
@@ -369,7 +277,7 @@
     <section id="tab-invite" class="tab-view">
       <div class="box">
         <h2 style="margin-top:0;">🤝 Convide Amigos (10% Vitalício)</h2>
-        <p style="font-size:13px;color:var(--muted);">Compartilhe seu link no TikTok ou WhatsApp e ganhe 10% de bônus sobre as tarefas e conquistas dos seus convidados.</p>
+        <p style="font-size:13px;color:var(--muted);">Compartilhe seu link no TikTok ou WhatsApp e ganhe 10% de bônus sobre as conquistas dos seus convidados.</p>
         <label>Seu link exclusivo de indicação:</label>
         <input type="text" id="ref-link-input" readonly />
         <button class="btn-primary" onclick="copyRefLink()">📋 Copiar Link de Convite</button>
@@ -415,7 +323,6 @@
         <h2 style="margin-top:0;">👤 Meu Perfil & Segurança</h2>
         <p style="font-size:13px;"><strong>ID da Conta:</strong> <span id="prof-uid">-</span></p>
         <p style="font-size:13px;"><strong>Saldo Atual:</strong> <span id="prof-bal">0</span> moedas</p>
-        <p style="font-size:13px;"><strong>Tarefas TimeWall Concluídas:</strong> <span id="prof-offers">0</span></p>
         <p style="font-size:13px;color:#34d399;">🛡️ Escudo Antifraude Ativo (Dispositivo Verificado)</p>
         <p style="font-size:12px;color:var(--muted);">Suporte oficial: suporte@cashplayapp.sbs</p>
       </div>
@@ -433,7 +340,6 @@
 
   <script>
     window.MONETAG_DIRECT_LINK = 'https://uplcm.com/4/12319298';
-    const TIMEWALL_OID = '1be50b5db408a909';
     const STREAK_REWARDS = [5, 8, 10, 12, 15, 18, 35];
 
     function toast(msg) {
@@ -451,14 +357,6 @@
         localStorage.setItem('cashplay_uid', uid);
       }
       return uid;
-    }
-
-    function openTimeWallOfferwall() {
-      const uid = getUserId();
-      const twUrl = `https://timewall.io/users/login?oid=${TIMEWALL_OID}&uid=${encodeURIComponent(uid)}`;
-      sessionStorage.setItem('cp_tw_opened', '1');
-      window.open(twUrl, '_blank', 'noopener,noreferrer');
-      toast('🚀 Abrindo TimeWall... complete uma tarefa e volte para ver suas moedas!');
     }
 
     function renderStreakUI(streakDay, claimedToday) {
@@ -499,13 +397,12 @@
       }
     };
 
-    window.loadUser = async function (notifyIfIncreased) {
+    window.loadUser = async function () {
       const uid = getUserId();
       document.getElementById('hdr-uid').textContent = 'ID: ' + uid;
       document.getElementById('prof-uid').textContent = uid;
       document.getElementById('ref-link-input').value = location.origin + '/?ref=' + uid;
 
-      const prevBalance = Number(document.getElementById('hdr-coins').textContent || 0);
       const ref = new URLSearchParams(location.search).get('ref');
       const today = new Date().toISOString().slice(0, 10);
       try {
@@ -517,11 +414,6 @@
         const data = await res.json();
         if (data && typeof data.balance === 'number') {
           window.updateBalanceUI(data.balance);
-          const offersEl = document.getElementById('prof-offers');
-          if (offersEl) offersEl.textContent = Number(data.offersCompleted || 0);
-          if (notifyIfIncreased && data.balance > prevBalance) {
-            toast(`🎉 +${data.balance - prevBalance} moedas recebidas do TimeWall!`);
-          }
           const claimedToday = data.lastStreakDate === today;
           const nextDay = claimedToday ? Number(data.streakDay || 1) : Math.min(7, Number(data.streakDay || 0) + 1);
           renderStreakUI(nextDay, claimedToday);
@@ -640,9 +532,6 @@
       if (document.visibilityState === 'visible') {
         checkDailyReturn();
         checkStreakReturn();
-        if (sessionStorage.getItem('cp_tw_opened') === '1') {
-          window.loadUser(true);
-        }
       }
     });
 
@@ -696,15 +585,13 @@
       const dict = {
         pt: {
           heroBadge: '🔥 JOGUE E ACUMULE MOEDAS',
-          heroTitle: 'Divirta-se nos mini-jogos, complete tarefas e saque via PIX ou PayPal',
-          dailyBtn: '🎬 Bônus Diário (+10 moedas • Ver Anúncio)',
-          twDesc: 'Ganhe moedas rápidas clicando em sites, respondendo pesquisas e completando micro-tarefas.'
+          heroTitle: 'Divirta-se nos mini-jogos, abra baús diários e saque via PIX ou PayPal',
+          dailyBtn: '🎬 Bônus Diário (+10 moedas • Ver Anúncio)'
         },
         es: {
           heroBadge: '🔥 JUEGA Y ACUMULA MONEDAS',
-          heroTitle: 'Diviértete en los mini-juegos, completa tareas y retira por PayPal o USDT',
-          dailyBtn: '🎬 Bono Diario (+10 monedas • Ver Anuncio)',
-          twDesc: 'Gana monedas rápidas viendo sitios, respondiendo encuestas y completando micro-tareas.'
+          heroTitle: 'Diviértete en los mini-juegos, abre cofres diarios y retira por PayPal o USDT',
+          dailyBtn: '🎬 Bono Diario (+10 monedas • Ver Anuncio)'
         }
       };
       document.querySelectorAll('[data-i18n]').forEach((el) => {
@@ -728,7 +615,7 @@
       }).catch(() => {});
     }
 
-    window.loadUser(false);
+    window.loadUser();
   </script>
   <script src="/games.js?v=4.3"></script>
   <script>
@@ -736,7 +623,5 @@
       window.initCashPlayArcade('cashplay-arcade-root');
     }
   </script>
-  <!-- Monetag In-Page Push (Zone 12335286) -->
-  <script>(function(s){s.dataset.zone='12335286',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
 </body>
 </html>
