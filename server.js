@@ -7,7 +7,8 @@ const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
-const POSTBACK_SECRET = process.env.POSTBACK_SECRET || 'CLAVE2026';
+// Clave secreta sincronizada directamente con tu configuración de TimeWall
+const POSTBACK_SECRET = process.env.POSTBACK_SECRET || 'secretomayor15274515';
 const STREAK_REWARDS = [5, 8, 10, 12, 15, 18, 35];
 
 let db = null;
@@ -73,7 +74,7 @@ app.post('/api/user', async (req, res) => {
     }
 
     if (!memUsers[userId]) {
-      memUsers[userId] = { userId, balance: 200, adActionsCount: 0, streakDay: 0, ip };
+      memUsers[userId] = { userId, balance: 200, adActionsCount: 0, offersCompleted: 0, offerwallCoins: 0, streakDay: 0, ip };
     }
     return res.json(memUsers[userId]);
   } catch (err) {
@@ -283,7 +284,6 @@ app.post('/api/game-reward', async (req, res) => {
   }
 });
 
-
 // Hito de Contador de Anuncios Monetag (+15 monedas cada 5 anuncios vistos, máx. 4 hitos/día)
 app.post('/api/ad-milestone', async (req, res) => {
   try {
@@ -335,11 +335,16 @@ app.post('/api/ad-milestone', async (req, res) => {
   }
 });
 
-// Postback S2S de Offerwalls
+// Postback S2S de TimeWall (GET /api/postback)
 app.get('/api/postback', async (req, res) => {
   try {
-    const { secret, userid, amount, txid, offer_name } = req.query;
-    if (secret !== POSTBACK_SECRET) return res.status(403).send('INVALID_SECRET');
+    const { secret, userid, amount, txid, offer_name, revenue } = req.query;
+    console.log('[TimeWall Postback]', { userid, amount, txid, offer_name, revenue });
+
+    if (secret !== POSTBACK_SECRET && secret !== 'secretomayor15274515') {
+      console.warn('[TimeWall Postback] Secret inválido recibido:', secret);
+      return res.status(403).send('INVALID_SECRET');
+    }
     if (!userid || !amount) return res.status(400).send('MISSING_PARAMS');
 
     const coins = Math.round(Number(amount));
@@ -347,9 +352,9 @@ app.get('/api/postback', async (req, res) => {
     const transactionId = String(txid || `${userid}_${Date.now()}`);
 
     if (db) {
-      const txDoc = db.collection('postbacks').doc(transactionId);
+      const txDoc = db.collection('postbacks').doc(`tw_${transactionId}`);
       const exists = await txDoc.get();
-      if (exists.exists) return res.send('OK');
+      if (exists.exists) return res.status(200).send('OK');
 
       const userRef = db.collection('users').doc(String(userid));
       await db.runTransaction(async (tx) => {
@@ -365,18 +370,22 @@ app.get('/api/postback', async (req, res) => {
             userId: String(userid),
             balance: cur + coins,
             offersCompleted: prevOffers + 1,
-            offerwallCoins: prevOfferCoins + coins
+            offerwallCoins: prevOfferCoins + coins,
+            lastOfferAt: new Date().toISOString()
           },
           { merge: true }
         );
 
         tx.set(txDoc, {
+          provider: 'TimeWall',
           userId: String(userid),
           amount: coins,
-          offerName: String(offer_name || 'Offer'),
+          revenueUsd: Number(revenue || 0),
+          offerName: String(offer_name || 'TimeWall Offer'),
           createdAt: new Date().toISOString()
         });
 
+        // Comisión 10% para quien invitó al usuario
         if (uSnap.exists && uData.referredBy) {
           const refId = uData.referredBy;
           const refBonus = Math.floor(coins * 0.1);
@@ -389,17 +398,20 @@ app.get('/api/postback', async (req, res) => {
           }
         }
       });
-      return res.send('OK');
+      return res.status(200).send('OK');
     }
 
     if (!memTx.has(transactionId)) {
       memTx.add(transactionId);
-      const u = memUsers[userid] || { userId: userid, balance: 0 };
+      const u = memUsers[userid] || { userId: userid, balance: 0, offersCompleted: 0, offerwallCoins: 0 };
       u.balance += coins;
+      u.offersCompleted = (u.offersCompleted || 0) + 1;
+      u.offerwallCoins = (u.offerwallCoins || 0) + coins;
       memUsers[userid] = u;
     }
-    return res.send('OK');
+    return res.status(200).send('OK');
   } catch (err) {
+    console.error('[TimeWall Postback Error]', err.message);
     return res.status(500).send('ERROR');
   }
 });
@@ -436,6 +448,7 @@ app.post('/api/withdraw', async (req, res) => {
           usd: (coins / 1000).toFixed(2),
           adActionsCount,
           offersCompleted: Number(data.offersCompleted || 0),
+          offerwallCoins: Number(data.offerwallCoins || 0),
           ip,
           status: 'pending',
           createdAt: new Date().toISOString()
@@ -455,6 +468,8 @@ app.post('/api/withdraw', async (req, res) => {
       account,
       amount: coins,
       adActionsCount: u.adActionsCount || 0,
+      offersCompleted: u.offersCompleted || 0,
+      offerwallCoins: u.offerwallCoins || 0,
       ip,
       status: 'pending'
     });
@@ -464,12 +479,15 @@ app.post('/api/withdraw', async (req, res) => {
   }
 });
 
-// Panel de administración (/admin?secret=...) con retiros Y detalle simplificado de usuarios activos
+// Panel de administración (/admin?secret=...) con retiros e ingresos Offerwall (TimeWall)
 app.get('/admin', async (req, res) => {
-  if (req.query.secret !== POSTBACK_SECRET) return res.status(403).send('Acceso denegado');
+  if (req.query.secret !== POSTBACK_SECRET && req.query.secret !== 'secretomayor15274515') {
+    return res.status(403).send('Acceso denegado');
+  }
 
   let usersCount = 0;
   let totalAds = 0;
+  let totalOfferCoins = 0;
   let usersList = [];
   let list = [];
 
@@ -481,11 +499,15 @@ app.get('/admin', async (req, res) => {
       const uid = data.userId || d.id;
       if (String(uid).startsWith('usr_')) {
         const ads = Number(data.adActionsCount || 0);
+        const offCoins = Number(data.offerwallCoins || 0);
         totalAds += ads;
+        totalOfferCoins += offCoins;
         usersList.push({
           userId: uid,
           balance: Number(data.balance || 0),
           adActionsCount: ads,
+          offersCompleted: Number(data.offersCompleted || 0),
+          offerwallCoins: offCoins,
           streakDay: Number(data.streakDay || 0),
           ip: data.lastIp || data.ip || '-',
           lastSeen: data.lastSeen || data.createdAt || ''
@@ -493,21 +515,18 @@ app.get('/admin', async (req, res) => {
       }
     });
     usersList.sort((a, b) => {
+      if (b.offerwallCoins !== a.offerwallCoins) return b.offerwallCoins - a.offerwallCoins;
       if (b.adActionsCount !== a.adActionsCount) return b.adActionsCount - a.adActionsCount;
-      if (b.balance !== a.balance) return b.balance - a.balance;
-      return String(b.lastSeen).localeCompare(String(a.lastSeen));
+      return b.balance - a.balance;
     });
 
     const wSnap = await db.collection('withdrawals').orderBy('createdAt', 'desc').limit(50).get();
     list = wSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } else {
-    usersList = Object.values(memUsers).sort((a, b) => {
-      const adsDiff = Number(b.adActionsCount || 0) - Number(a.adActionsCount || 0);
-      if (adsDiff !== 0) return adsDiff;
-      return Number(b.balance || 0) - Number(a.balance || 0);
-    });
+    usersList = Object.values(memUsers);
     usersCount = usersList.length;
     totalAds = usersList.reduce((acc, u) => acc + Number(u.adActionsCount || 0), 0);
+    totalOfferCoins = usersList.reduce((acc, u) => acc + Number(u.offerwallCoins || 0), 0);
     list = memWithdraws;
   }
 
@@ -518,6 +537,7 @@ app.get('/admin', async (req, res) => {
         <td>${w.userId}</td>
         <td>${w.method}: <strong>${w.account}</strong></td>
         <td>${w.amount} ($${w.usd || (w.amount / 1000).toFixed(2)})</td>
+        <td style="color:#38bdf8;font-weight:700">${w.offersCompleted || 0} ofertas (${w.offerwallCoins || 0} 🪙)</td>
         <td>${w.adActionsCount || 0} anuncios</td>
         <td>${w.ip || '-'}</td>
         <td>${w.status}</td>
@@ -541,6 +561,7 @@ app.get('/admin', async (req, res) => {
       <tr>
         <td><strong>${u.userId}</strong></td>
         <td style="color:#fbbf24;font-weight:700">${u.balance}</td>
+        <td style="color:#38bdf8;font-weight:700">${u.offersCompleted || 0} (${u.offerwallCoins || 0} 🪙)</td>
         <td style="color:#34d399;font-weight:700">${u.adActionsCount}</td>
         <td>Día ${u.streakDay}</td>
         <td>${u.ip}</td>
@@ -567,24 +588,24 @@ app.get('/admin', async (req, res) => {
       <h2 style="margin:0 0 12px;font-size:18px">💎 Panel Admin CashPlay</h2>
       <div class="stats">
         <div class="card">Usuarios CashPlay<strong>${usersList.length}</strong></div>
-        <div class="card">Total Docs DB<strong>${usersCount}</strong></div>
-        <div class="card">Anuncios Vistos<strong>${totalAds}</strong></div>
+        <div class="card">Coins TimeWall<strong>${totalOfferCoins}</strong></div>
+        <div class="card">Anuncios Monetag<strong>${totalAds}</strong></div>
         <div class="card">Base de Datos<strong>${db ? 'Firestore OK' : 'Memoria'}</strong></div>
       </div>
 
       <h3>💸 Solicitudes de Retiro</h3>
       <div class="wrap">
         <table>
-          <thead><tr><th>Usuario</th><th>Cuenta</th><th>Retiro</th><th>Anuncios</th><th>IP</th><th>Estado</th><th>Acción</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7" style="color:#94a3b8">Sin retiros pendientes todavía.</td></tr>'}</tbody>
+          <thead><tr><th>Usuario</th><th>Cuenta</th><th>Retiro</th><th>Ingresos Offerwall</th><th>Anuncios</th><th>IP</th><th>Estado</th><th>Acción</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="8" style="color:#94a3b8">Sin retiros pendientes todavía.</td></tr>'}</tbody>
         </table>
       </div>
 
       <h3>👥 Detalle de Usuarios Activos (Últimos 100)</h3>
       <div class="wrap">
         <table>
-          <thead><tr><th>ID Usuario</th><th>Monedas</th><th>Anuncios Vistos</th><th>Racha</th><th>IP</th><th>Última Actividad (UTC)</th></tr></thead>
-          <tbody>${userRows || '<tr><td colspan="6" style="color:#94a3b8">Aún no hay usuarios registrados.</td></tr>'}</tbody>
+          <thead><tr><th>ID Usuario</th><th>Monedas</th><th>TimeWall</th><th>Anuncios</th><th>Racha</th><th>IP</th><th>Última Actividad (UTC)</th></tr></thead>
+          <tbody>${userRows || '<tr><td colspan="7" style="color:#94a3b8">Aún no hay usuarios registrados.</td></tr>'}</tbody>
         </table>
       </div>
 
@@ -601,7 +622,9 @@ app.get('/admin', async (req, res) => {
 });
 
 app.post('/api/admin/withdraw', async (req, res) => {
-  if (req.query.secret !== POSTBACK_SECRET) return res.status(403).json({ error: 'FORBIDDEN' });
+  if (req.query.secret !== POSTBACK_SECRET && req.query.secret !== 'secretomayor15274515') {
+    return res.status(403).json({ error: 'FORBIDDEN' });
+  }
   const { id, status } = req.body || {};
   if (db && id) {
     const wRef = db.collection('withdrawals').doc(id);
