@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-  
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>CashPlay — Jogue Mini-Jogos Grátis e Ganhe Recompensas via PIX e PayPal</title>
@@ -116,7 +115,6 @@
     }
     .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    /* TARJETA DESTACADA TIMEWALL OFFERWALL */
     .timewall-card {
       background: linear-gradient(135deg, #172554 0%, #1e3a8a 55%, #0f766e 100%);
       border: 1px solid #38bdf8;
@@ -193,7 +191,6 @@
       transform: scale(0.98);
     }
 
-    /* RACHA DIARIA 7 DÍAS */
     .streak-card {
       background: var(--card); border: 1px solid var(--border); border-radius: 16px;
       padding: 14px; margin-bottom: 16px;
@@ -264,13 +261,6 @@
       padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
       z-index: 9999; display: none; max-width: 90%; text-align: center;
     }
-
-    /* Evitar que In-Page Push tape la cabecera del saldo */
-    body > div[style*="position: fixed"][style*="top: 0"],
-    body > div[style*="position:fixed"][style*="top:0"],
-    body > div[style*="z-index: 2147483647"] {
-      top: 64px !important;
-    }
   </style>
 </head>
 <body>
@@ -295,7 +285,6 @@
   </header>
 
   <main>
-    <!-- PESTAÑA GANHAR -->
     <section id="tab-earn" class="tab-view active">
       <div class="hero-card">
         <div class="hero-badge" data-i18n="heroBadge">🔥 JOGUE E ACUMULE MOEDAS</div>
@@ -304,7 +293,6 @@
         <button class="btn-primary" id="btn-daily-bonus" data-i18n="dailyBtn">🎬 Bônus Diário (+10 moedas • Ver Anúncio)</button>
       </div>
 
-      <!-- TARJETA OFICIAL TIMEWALL OFFERWALL -->
       <div class="timewall-card">
         <div class="tw-top">
           <div>
@@ -325,14 +313,12 @@
         </button>
       </div>
 
-      <!-- RESUMEN DE COMO FUNCIONA -->
       <div class="how-grid">
         <div class="how-item"><strong>1. Tarefas</strong>Complete no TimeWall</div>
         <div class="how-item"><strong>2. Jogue</strong>Suba de nível no Arcade</div>
         <div class="how-item"><strong>3. Saque</strong>PIX, PayPal ou USDT</div>
       </div>
 
-      <!-- RACHA DIARIA DE 7 DÍAS -->
       <div class="streak-card">
         <div class="streak-top">
           <h3>🔥 Sequência Diária (7 Dias)</h3>
@@ -344,7 +330,6 @@
         </button>
       </div>
 
-      <!-- BARRA DE PROGRESO HACIA EL RETIRO -->
       <div class="progress-wrap">
         <div class="progress-top">
           <span id="goal-label">🎯 Meta para Saque (2.000 moedas)</span>
@@ -354,16 +339,13 @@
         <div id="goal-rem" style="font-size:11px;color:#94a3b8;margin-top:5px;">Faltam 2.000 moedas para o 1º saque PIX / PayPal</div>
       </div>
 
-      <!-- SECCIÓN ARCADE + COFRE DE TIEMPO ACTIVO -->
       <div id="cashplay-arcade-root"></div>
 
-      <!-- GUIA RÁPIDO PARA BUSCADORES (SEO) -->
       <div style="background:#131c31;border:1px solid #253354;border-radius:14px;padding:13px 14px;margin-bottom:14px;font-size:11.5px;color:#94a3b8;line-height:1.5;">
         <strong style="color:#e2e8f0;display:block;margin-bottom:4px;">Sobre o CashPlay Arcade & Recompensas</strong>
         O <strong>CashPlay</strong> é um portal gratuito de mini-jogos casuais online (<em>Knife Hit Neon, Plinko Arcade, Stack Tower, Helix Smash, Gem Slasher e Gravity Dash</em>) e tarefas patrocinadas via <strong>TimeWall</strong> onde você acumula pontos e troca suas moedas por recompensas via <strong>PIX, PayPal ou USDT</strong>.
       </div>
 
-      <!-- ENLACES LEGALES VISIBLES PARA APROBACIÓN DE OFFERWALLS -->
       <div class="legal-links">
         <a href="#" onclick="showLegal('terms');return false;">Termos de Uso</a> •
         <a href="#" onclick="showLegal('privacy');return false;">Privacidade</a> •
@@ -371,7 +353,6 @@
       </div>
     </section>
 
-    <!-- PESTAÑA CONVIDAR -->
     <section id="tab-invite" class="tab-view">
       <div class="box">
         <h2 style="margin-top:0;">🤝 Convide Amigos (10% Vitalício)</h2>
@@ -382,7 +363,6 @@
       </div>
     </section>
 
-    <!-- PESTAÑA SACAR -->
     <section id="tab-withdraw" class="tab-view">
       <div class="hero-card">
         <div class="hero-badge">💸 SAQUES RÁPIDOS</div>
@@ -415,7 +395,6 @@
       </div>
     </section>
 
-    <!-- PESTAÑA PERFIL -->
     <section id="tab-profile" class="tab-view">
       <div class="box">
         <h2 style="margin-top:0;">👤 Meu Perfil & Segurança</h2>
@@ -710,7 +689,7 @@
           heroBadge: '🔥 JUEGA Y ACUMULA MONEDAS',
           heroTitle: 'Diviértete en los mini-juegos, completa tareas y retira por PayPal o USDT',
           dailyBtn: '🎬 Bono Diario (+10 monedas • Ver Anuncio)',
-          twDesc: 'Gana monedas rápidas viendo sitios, respondiendo encuestas y completando micro-tareas.'
+          twDesc: 'Gana monedas rápidas viendo sitios, respondiendo encuestas y completando micro-tarefas.'
         }
       };
       document.querySelectorAll('[data-i18n]').forEach((el) => {
@@ -741,15 +720,6 @@
     if (typeof window.initCashPlayArcade === 'function') {
       window.initCashPlayArcade('cashplay-arcade-root');
     }
-  </script>
-  <!-- Monetag In-Page Push (Zone 12335286) con retardo de 5s para evitar clics accidentales -->
-  <script>
-    setTimeout(function () {
-      var s = document.createElement('script');
-      s.dataset.zone = '12335286';
-      s.src = 'https://nap5k.com/tag.min.js';
-      document.body.appendChild(s);
-    }, 5000);
   </script>
 </body>
 </html>
