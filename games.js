@@ -1,21 +1,108 @@
-// CashPlay Arcade Neon 6-in-1 + Playtime Chest v4.0
+// CashPlay Arcade Neon 6-in-1 + Energy Reactor Wheel + Playtime Chest v4.1
 // Incluye:
+// - Reactor de Energía Neón (Ruleta Arcade con 3 giros gratis/día + giros ilimitados vía Monetag)
 // - Cofre de Tiempo Activo escalonado (1º baú en 30s, 2º en 90s, siguientes en 180s -> +5 monedas al abrir con anuncio Monetag, máx. 6/día)
 // - Multiplicador x2 voluntario al subir de nivel (+6 monedas vs +3 monedas, respetando el tope diario de 10 cupos)
 // - 6 Minijuegos Neon Canvas 2D con Audio Sintetizado + Vibración Háptica + Partículas:
-//   1. Knife Hit Neon (Lanzamiento de cuchillos al núcleo giratorio)
-//   2. Plinko Arcade (Esferas rebotando entre pines luminosos hacia multiplicadores)
-//   3. Stack Tower Neon (Apilar bloques con cortes milimétricos y combos)
-//   4. Helix Smash (Caída libre rompiendo anillos de color)
-//   5. Gem Slasher (Cortar gemas en el aire con estela neón y esquivar bombas)
-//   6. Gravity Dash (Invertir gravedad al toque esquivando barreras láser)
+//   1. Knife Hit Neon
+//   2. Plinko Arcade
+//   3. Stack Tower Neon
+//   4. Helix Smash
+//   5. Gem Slasher
+//   6. Gravity Dash
 
 (function () {
   const DAILY_LEVEL_LIMIT = 10;
   const LEVEL_REWARD_COINS = 3;
   const CHEST_REWARD_COINS = 5;
   const CHEST_DAILY_LIMIT = 6;
+  const FREE_REACTOR_SPINS = 3;
   const AD_WAIT_SECONDS = 5;
+
+  const AD_MILESTONE_STEP = 5;
+  const AD_MILESTONE_REWARD = 15;
+  const AD_MILESTONE_MAX = 4;
+
+  function getAdCounterData() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('cp_ad_counter') || '{}');
+      if (raw.date !== getTodayKey()) return { date: getTodayKey(), views: 0, claimedMilestones: 0 };
+      return {
+        date: getTodayKey(),
+        views: Number(raw.views || 0),
+        claimedMilestones: Number(raw.claimedMilestones || 0)
+      };
+    } catch {
+      return { date: getTodayKey(), views: 0, claimedMilestones: 0 };
+    }
+  }
+
+  function saveAdCounterData(d) {
+    localStorage.setItem('cp_ad_counter', JSON.stringify(d));
+    updateAdCounterUI();
+  }
+
+  window.recordMonetagAdView = function () {
+    const d = getAdCounterData();
+    d.views += 1;
+    saveAdCounterData(d);
+  };
+
+  function updateAdCounterUI() {
+    const txt = document.getElementById('cp-adcount-txt');
+    const bar = document.getElementById('cp-adcount-bar');
+    const btn = document.getElementById('cp-adcount-btn');
+    if (!txt || !bar || !btn) return;
+
+    const d = getAdCounterData();
+    const earnedMilestones = Math.min(AD_MILESTONE_MAX, Math.floor(d.views / AD_MILESTONE_STEP));
+    const readyToClaim = earnedMilestones > d.claimedMilestones;
+
+    if (d.claimedMilestones >= AD_MILESTONE_MAX) {
+      txt.textContent = `🎬 Vídeos hoje: ${d.views} • Todos os ${AD_MILESTONE_MAX} bônus extras concluídos!`;
+      bar.style.width = '100%';
+      btn.disabled = true;
+      btn.style.background = '#1e293b';
+      btn.style.color = '#64748b';
+      btn.textContent = 'Concluído';
+    } else if (readyToClaim) {
+      txt.textContent = `🎬 Vídeos hoje: ${d.views} • Bônus Extra #${d.claimedMilestones + 1} liberado!`;
+      bar.style.width = '100%';
+      btn.disabled = false;
+      btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+      btn.style.color = '#0b1120';
+      btn.textContent = `Resgatar +${AD_MILESTONE_REWARD} 🪙`;
+    } else {
+      const progressInStep = d.views % AD_MILESTONE_STEP;
+      const pct = Math.round((progressInStep / AD_MILESTONE_STEP) * 100);
+      const rem = AD_MILESTONE_STEP - progressInStep;
+      txt.textContent = `🎬 Vídeos hoje: ${d.views} (faltam ${rem} para +${AD_MILESTONE_REWARD} moedas)`;
+      bar.style.width = pct + '%';
+      btn.disabled = true;
+      btn.style.background = '#1e293b';
+      btn.style.color = '#94a3b8';
+      btn.textContent = `${progressInStep}/${AD_MILESTONE_STEP}`;
+    }
+  }
+
+  function runLiveAdCountdown(btn, openedAt, totalSec, onReady) {
+    if (!btn) return;
+    clearInterval(btn._adCd);
+    function step() {
+      const rem = Math.ceil(totalSec - (Date.now() - openedAt) / 1000);
+      if (rem > 0) {
+        btn.disabled = true;
+        btn.textContent = `⏳ Validando vídeo... ${rem}s`;
+      } else {
+        clearInterval(btn._adCd);
+        btn.textContent = '✅ Validado! Coletando...';
+        if (onReady) onReady();
+      }
+    }
+    step();
+    btn._adCd = setInterval(step, 400);
+  }
+
 
   let activeSeconds = 0;
   let lastActionTs = 0;
@@ -23,7 +110,6 @@
   let soundEnabled = true;
   let audioCtx = null;
 
-  // --- SINTETIZADOR DE SONIDO WEB AUDIO (Cero archivos MP3 externos) ---
   function playTone(freq, type, duration, vol) {
     if (!soundEnabled) return;
     try {
@@ -100,6 +186,65 @@
     updateChestUI();
   }
 
+  function getReactorFreeUsed() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('cp_reactor_free') || '{}');
+      if (raw.date !== getTodayKey()) return 0;
+      return Number(raw.count || 0);
+    } catch {
+      return 0;
+    }
+  }
+
+  function incrementReactorFreeUsed() {
+    const count = getReactorFreeUsed() + 1;
+    localStorage.setItem('cp_reactor_free', JSON.stringify({ date: getTodayKey(), count }));
+  }
+
+  function getReactorBoost() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('cp_reactor_boost') || 'null');
+      if (!raw || raw.date !== getTodayKey() || Number(raw.remaining || 0) <= 0) return null;
+      return raw;
+    } catch {
+      return null;
+    }
+  }
+
+  function setReactorBoost(label, extraCoins, remaining) {
+    localStorage.setItem(
+      'cp_reactor_boost',
+      JSON.stringify({ date: getTodayKey(), label, extraCoins, remaining })
+    );
+    updateReactorStatusBadge();
+  }
+
+  function consumeReactorBoostIfAny() {
+    const b = getReactorBoost();
+    if (!b) return null;
+    const nextRem = Number(b.remaining || 0) - 1;
+    if (nextRem <= 0) {
+      localStorage.removeItem('cp_reactor_boost');
+    } else {
+      b.remaining = nextRem;
+      localStorage.setItem('cp_reactor_boost', JSON.stringify(b));
+    }
+    updateReactorStatusBadge();
+    return b;
+  }
+
+  function updateReactorStatusBadge() {
+    const el = document.getElementById('cp-reactor-active-tag');
+    if (!el) return;
+    const b = getReactorBoost();
+    if (b) {
+      el.style.display = 'inline-block';
+      el.textContent = `⚡ ${b.label} ativo (${b.remaining} partida${b.remaining > 1 ? 's' : ''})`;
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
   function registerGameActivity() {
     const now = Date.now();
     const target = getChestTargetSeconds();
@@ -152,6 +297,7 @@
 
   function triggerAdForLevel(gameName, levelReached, multiplier, activeBtn) {
     const directLink = window.MONETAG_DIRECT_LINK || 'https://uplcm.com/4/12319298';
+    const openedAt = Date.now();
     localStorage.setItem(
       'cp_pending_game_reward',
       JSON.stringify({
@@ -159,14 +305,11 @@
         game: gameName,
         level: levelReached,
         multiplier: multiplier,
-        openedAt: Date.now()
+        openedAt
       })
     );
     window.open(directLink, '_blank', 'noopener');
-    if (activeBtn) {
-      activeBtn.disabled = true;
-      activeBtn.textContent = '⏳ Aguardando confirmação (5s)...';
-    }
+    runLiveAdCountdown(activeBtn, openedAt, AD_WAIT_SECONDS, checkPendingArcadeRewards);
   }
 
   function showLevelUpModal(gameName, levelReached, onContinue) {
@@ -174,6 +317,7 @@
     setTimeout(() => playTone(880, 'triangle', 0.25, 0.14), 110);
     vibrate([40, 30, 60]);
 
+    const activeBoost = consumeReactorBoostIfAny();
     const used = getDailyClaims();
     const remainingSlots = DAILY_LEVEL_LIMIT - used;
     const canClaim = remainingSlots > 0;
@@ -191,7 +335,14 @@
       <div style="background:linear-gradient(160deg,#131c33,#0c1324);border:1px solid #334155;border-radius:18px;max-width:360px;width:100%;padding:22px;color:#fff;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.65);">
         <div style="font-size:40px;margin-bottom:6px;">🏆</div>
         <h3 style="margin:0 0 4px;font-size:20px;font-weight:900;color:#38bdf8;">Nível ${levelReached} Concluído!</h3>
-        <p style="margin:0 0 16px;font-size:13px;color:#94a3b8;">${gameName}</p>
+        <p style="margin:0 0 12px;font-size:13px;color:#94a3b8;">${gameName}</p>
+        ${
+          activeBoost
+            ? `<div style="background:rgba(16,185,129,0.16);border:1px solid #10b981;color:#34d399;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:800;margin-bottom:12px;">
+                ⚡ Bônus do Reator aplicado: ${activeBoost.label}
+               </div>`
+            : ''
+        }
         ${
           canClaim
             ? `
@@ -250,6 +401,7 @@
             const json = await res.json();
             if (json && json.ok) {
               incrementDailyClaims(json.slotsUsed || mult);
+              if (typeof window.recordMonetagAdView === 'function') window.recordMonetagAdView();
               if (typeof window.updateBalanceUI === 'function') window.updateBalanceUI(json.balance);
               const overlay = document.getElementById('cp-levelup-overlay');
               if (overlay) overlay.style.display = 'none';
@@ -278,9 +430,27 @@
               activeSeconds = 0;
               lastActionTs = 0;
               incrementChestClaims();
+              if (typeof window.recordMonetagAdView === 'function') window.recordMonetagAdView();
               if (typeof window.updateBalanceUI === 'function') window.updateBalanceUI(json.balance);
               alert(`🎁 Baú aberto! +${CHEST_REWARD_COINS} moedas creditadas!`);
             }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Verificar giro extra do Reator de Energía tras anuncio Monetag
+    const rawSpin = localStorage.getItem('cp_pending_reactor_spin');
+    if (rawSpin) {
+      try {
+        const data = JSON.parse(rawSpin);
+        if ((Date.now() - Number(data.openedAt || 0)) / 1000 >= AD_WAIT_SECONDS) {
+          localStorage.removeItem('cp_pending_reactor_spin');
+          const curBonus = Number(localStorage.getItem('cp_reactor_ad_spins') || 0);
+          localStorage.setItem('cp_reactor_ad_spins', String(curBonus + 1));
+          if (typeof window.recordMonetagAdView === 'function') window.recordMonetagAdView();
+          if (typeof window._refreshReactorModalBtn === 'function') {
+            window._refreshReactorModalBtn();
           }
         }
       } catch (e) {}
@@ -293,7 +463,185 @@
     }
   });
 
-  // Helper para crear Canvas responsivo con soporte Retina/DPR
+  // =========================================================================
+  // REACTOR DE ENERGÍA NEÓN (Ruleta Arcade segura sin estética de casino)
+  // =========================================================================
+  function openEnergyReactorModal() {
+    const sectors = [
+      { label: '⚡ +15s Baú', color: '#2563eb', action: () => { activeSeconds = Math.min(getChestTargetSeconds(), activeSeconds + 15); updateChestUI(); } },
+      { label: '🛡️ Escudo x2', color: '#10b981', action: () => { setReactorBoost('Escudo Arcade 2x', 0, 2); } },
+      { label: '💎 +30s Baú', color: '#0284c7', action: () => { activeSeconds = Math.min(getChestTargetSeconds(), activeSeconds + 30); updateChestUI(); } },
+      { label: '🚀 Turbo Nível', color: '#7c3aed', action: () => { setReactorBoost('Turbo Arcade', 0, 3); } },
+      { label: '⚡ +10s Baú', color: '#1d4ed8', action: () => { activeSeconds = Math.min(getChestTargetSeconds(), activeSeconds + 10); updateChestUI(); } },
+      { label: '🔥 Super Carga', color: '#d97706', action: () => { activeSeconds = getChestTargetSeconds(); updateChestUI(); } }
+    ];
+
+    let overlay = document.getElementById('cp-reactor-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'cp-reactor-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(6,10,22,0.92);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+      document.body.appendChild(overlay);
+    }
+
+    overlay.innerHTML = `
+      <div style="background:linear-gradient(160deg,#131c33,#0a1020);border:1px solid #334155;border-radius:20px;max-width:360px;width:100%;padding:20px;color:#fff;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.7);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;font-weight:800;color:#38bdf8;">⚡ REATOR DE ENERGIA</span>
+          <button id="cp-reactor-close" style="background:#1e293b;border:none;color:#94a3b8;width:28px;height:28px;border-radius:50%;cursor:pointer;font-weight:800;">✕</button>
+        </div>
+        <p style="margin:0 0 12px;font-size:12px;color:#94a3b8;">Gire o núcleo para acelerar seus baús e ativar turbos nos mini-jogos!</p>
+
+        <div style="position:relative;width:230px;height:230px;margin:0 auto 14px;">
+          <div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:18px solid #fbbf24;z-index:5;"></div>
+          <canvas id="cp-reactor-canvas" width="230" height="230" style="width:230px;height:230px;border-radius:50%;border:3px solid #38bdf8;box-shadow:0 0 25px rgba(56,189,248,0.28);"></canvas>
+        </div>
+
+        <div id="cp-reactor-result" style="min-height:22px;font-size:13px;font-weight:800;color:#34d399;margin-bottom:10px;"></div>
+
+        <button id="cp-reactor-spin-btn" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:900;font-size:14px;cursor:pointer;">
+          ⚡ Girar Reator Grátis
+        </button>
+      </div>
+    `;
+    overlay.style.display = 'flex';
+
+    const canvas = document.getElementById('cp-reactor-canvas');
+    const ctx = canvas.getContext('2d');
+    let currentRot = 0;
+    let spinning = false;
+
+    function drawWheel(rot) {
+      const cx = 115;
+      const cy = 115;
+      const r = 110;
+      const slice = (Math.PI * 2) / sectors.length;
+      ctx.clearRect(0, 0, 230, 230);
+
+      sectors.forEach((s, i) => {
+        const start = rot + i * slice;
+        const end = start + slice;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, end);
+        ctx.closePath();
+        ctx.fillStyle = s.color;
+        ctx.fill();
+        ctx.strokeStyle = '#0b1120';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(start + slice / 2);
+        ctx.fillStyle = '#fff';
+        ctx.font = '800 11px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(s.label, r - 12, 4);
+        ctx.restore();
+      });
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+      ctx.fillStyle = '#0f172a';
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⚡', cx, cy);
+    }
+
+    drawWheel(currentRot);
+
+    const spinBtn = document.getElementById('cp-reactor-spin-btn');
+    const resEl = document.getElementById('cp-reactor-result');
+
+    function refreshSpinButton() {
+      const freeLeft = Math.max(0, FREE_REACTOR_SPINS - getReactorFreeUsed());
+      const adSpins = Number(localStorage.getItem('cp_reactor_ad_spins') || 0);
+      if (freeLeft > 0) {
+        spinBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+        spinBtn.textContent = `⚡ Girar Grátis (${freeLeft}/${FREE_REACTOR_SPINS} hoje)`;
+        spinBtn.dataset.mode = 'free';
+      } else if (adSpins > 0) {
+        spinBtn.style.background = 'linear-gradient(135deg,#2563eb,#1d4ed8)';
+        spinBtn.textContent = `🎁 Usar Giro Extra (${adSpins} disponível)`;
+        spinBtn.dataset.mode = 'bonus';
+      } else {
+        spinBtn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+        spinBtn.style.color = '#0b1120';
+        spinBtn.textContent = '🎬 Desbloquear +1 Giro (Ver Anúncio)';
+        spinBtn.dataset.mode = 'ad';
+      }
+    }
+    window._refreshReactorModalBtn = refreshSpinButton;
+    refreshSpinButton();
+
+    spinBtn.onclick = () => {
+      if (spinning) return;
+      const mode = spinBtn.dataset.mode;
+      if (mode === 'ad') {
+        const directLink = window.MONETAG_DIRECT_LINK || 'https://uplcm.com/4/12319298';
+        const openedAt = Date.now();
+        localStorage.setItem('cp_pending_reactor_spin', JSON.stringify({ openedAt }));
+        window.open(directLink, '_blank', 'noopener');
+        runLiveAdCountdown(spinBtn, openedAt, AD_WAIT_SECONDS, checkPendingArcadeRewards);
+        return;
+      }
+
+      if (mode === 'free') {
+        incrementReactorFreeUsed();
+      } else if (mode === 'bonus') {
+        const cur = Number(localStorage.getItem('cp_reactor_ad_spins') || 0);
+        localStorage.setItem('cp_reactor_ad_spins', String(Math.max(0, cur - 1)));
+      }
+
+      spinning = true;
+      resEl.textContent = 'Carregando energia...';
+      const targetIdx = Math.floor(Math.random() * sectors.length);
+      const slice = (Math.PI * 2) / sectors.length;
+      const finalAngle = Math.PI * 10 + (-Math.PI / 2 - (targetIdx + 0.5) * slice);
+      const startRot = currentRot;
+      const duration = 2600;
+      const startTime = performance.now();
+      let lastTick = -1;
+
+      function anim(now) {
+        const t = Math.min(1, (now - startTime) / duration);
+        const ease = 1 - Math.pow(1 - t, 3);
+        currentRot = startRot + (finalAngle - startRot) * ease;
+        drawWheel(currentRot);
+
+        const tickIdx = Math.floor((currentRot / slice) % sectors.length);
+        if (tickIdx !== lastTick) {
+          lastTick = tickIdx;
+          playTone(620, 'sine', 0.03, 0.04);
+        }
+
+        if (t < 1) {
+          requestAnimationFrame(anim);
+        } else {
+          spinning = false;
+          const won = sectors[targetIdx];
+          won.action();
+          playTone(880, 'triangle', 0.22, 0.12);
+          vibrate([40, 30, 50]);
+          resEl.textContent = `🎉 Você ativou: ${won.label}!`;
+          refreshSpinButton();
+        }
+      }
+      requestAnimationFrame(anim);
+    };
+
+    document.getElementById('cp-reactor-close').onclick = () => {
+      overlay.style.display = 'none';
+    };
+  }
+
   function setupCanvas(container, heightPx) {
     container.innerHTML = '';
     const canvas = document.createElement('canvas');
@@ -314,9 +662,7 @@
     return { canvas, ctx, w: width, h: heightPx };
   }
 
-  // =========================================================================
   // JUEGO 1: KNIFE HIT NEON
-  // =========================================================================
   function mountKnifeHit(container) {
     stopCurrentLoop();
     const { canvas, ctx, w, h } = setupCanvas(container, 360);
@@ -375,11 +721,9 @@
       ctx.fillStyle = '#070b16';
       ctx.fillRect(0, 0, w, h);
 
-      // Rotación dinámica con cambio de ritmo según nivel
       const speed = (0.032 + level * 0.004) * (level % 3 === 0 ? Math.sin(ts * 0.002) * 1.4 : 1);
       if (!paused) targetAngle += speed;
 
-      // Actualizar cuchillo en vuelo
       if (flyingKnife && !paused) {
         flyingKnife.y -= 24;
         if (flyingKnife.y <= cy + radius + 12) {
@@ -417,7 +761,6 @@
         }
       }
 
-      // Dibujar cuchillos clavados
       stuckAngles.forEach((a) => {
         const ang = a + targetAngle;
         ctx.save();
@@ -430,7 +773,6 @@
         ctx.restore();
       });
 
-      // Dibujar núcleo neón
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate(targetAngle);
@@ -453,7 +795,6 @@
       ctx.fillText(`NV ${level}`, 0, 0);
       ctx.restore();
 
-      // Cuchillo listo o volando
       const ky = flyingKnife ? flyingKnife.y : h - 55;
       if (knivesLeft > 0 || flyingKnife) {
         ctx.fillStyle = '#f8fafc';
@@ -467,13 +808,11 @@
         ctx.fillRect(cx - 5, ky + 6, 10, 14);
       }
 
-      // Indicador de cuchillos restantes
       for (let i = 0; i < knivesLeft; i++) {
         ctx.fillStyle = '#38bdf8';
         ctx.fillRect(16, h - 22 - i * 11, 18, 5);
       }
 
-      // Partículas
       particles.forEach((p) => {
         p.x += p.vx;
         p.y += p.vy;
@@ -498,9 +837,7 @@
     activeLoopId = requestAnimationFrame(loop);
   }
 
-  // =========================================================================
   // JUEGO 2: PLINKO ARCADE
-  // =========================================================================
   function mountPlinko(container) {
     stopCurrentLoop();
     const { canvas, ctx, w, h } = setupCanvas(container, 360);
@@ -549,7 +886,6 @@
       ctx.fillStyle = '#070b16';
       ctx.fillRect(0, 0, w, h);
 
-      // HUD superior
       ctx.fillStyle = '#e2e8f0';
       ctx.font = '700 13px sans-serif';
       ctx.textAlign = 'left';
@@ -558,7 +894,6 @@
       ctx.fillStyle = '#fbbf24';
       ctx.fillText(`Meta: ${points} / ${targetPoints} pts`, w - 14, 24);
 
-      // Dibujar pines
       pins.forEach((p) => {
         if (p.glow > 0) p.glow -= 0.06;
         ctx.beginPath();
@@ -567,7 +902,6 @@
         ctx.fill();
       });
 
-      // Ranuras inferiores
       const slotW = (w - 24) / multipliers.length;
       const slotY = h - 42;
       multipliers.forEach((val, i) => {
@@ -583,7 +917,6 @@
         ctx.fillText(`+${val}`, sx + slotW / 2, slotY + 18);
       });
 
-      // Actualizar bolas
       balls.forEach((b) => {
         b.vy += 0.24;
         b.x += b.vx;
@@ -644,9 +977,7 @@
     activeLoopId = requestAnimationFrame(loop);
   }
 
-  // =========================================================================
   // JUEGO 3: STACK TOWER NEON
-  // =========================================================================
   function mountStackTower(container) {
     stopCurrentLoop();
     const { canvas, ctx, w, h } = setupCanvas(container, 360);
@@ -684,7 +1015,6 @@
       const delta = current.x - prev.x;
 
       if (Math.abs(delta) <= 6) {
-        // Corte perfecto
         combo++;
         const bonusW = combo >= 3 ? Math.min(165, prev.w + 8) : prev.w;
         blocks.push({ x: prev.x, w: bonusW, color: '#10b981' });
@@ -765,9 +1095,7 @@
     activeLoopId = requestAnimationFrame(loop);
   }
 
-  // =========================================================================
   // JUEGO 4: HELIX SMASH
-  // =========================================================================
   function mountHelixSmash(container) {
     stopCurrentLoop();
     const { canvas, ctx, w, h } = setupCanvas(container, 360);
@@ -819,7 +1147,6 @@
         ballY += ballVy;
 
         if (ballY >= ringY - 12) {
-          // Verificar ángulo en la parte superior del anillo (-PI/2)
           const topRel = ((-Math.PI / 2 - ringAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
           const isDanger = topRel > Math.PI * 1.35;
 
@@ -849,7 +1176,6 @@
         }
       }
 
-      // Dibujar anillo giratorio (zona segura azul / zona roja prohibida)
       ctx.save();
       ctx.translate(cx, ringY);
       ctx.rotate(ringAngle);
@@ -865,7 +1191,6 @@
       ctx.stroke();
       ctx.restore();
 
-      // Dibujar esfera con estela de fuego si mantiene presionado
       ctx.beginPath();
       ctx.arc(cx, ballY, 12, 0, Math.PI * 2);
       ctx.fillStyle = holding ? '#f59e0b' : '#38bdf8';
@@ -883,9 +1208,7 @@
     activeLoopId = requestAnimationFrame(loop);
   }
 
-  // =========================================================================
   // JUEGO 5: GEM SLASHER
-  // =========================================================================
   function mountGemSlasher(container) {
     stopCurrentLoop();
     const { canvas, ctx, w, h } = setupCanvas(container, 360);
@@ -984,7 +1307,6 @@
       });
       items = items.filter((it) => !it.hit && it.y < h + 40);
 
-      // Estela de corte neón
       if (trail.length > 1) {
         ctx.beginPath();
         ctx.moveTo(trail[0].x, trail[0].y);
@@ -1010,9 +1332,7 @@
     activeLoopId = requestAnimationFrame(loop);
   }
 
-  // =========================================================================
   // JUEGO 6: GRAVITY DASH
-  // =========================================================================
   function mountGravityDash(container) {
     stopCurrentLoop();
     const { canvas, ctx, w, h } = setupCanvas(container, 360);
@@ -1048,7 +1368,6 @@
       ctx.fillStyle = '#070b16';
       ctx.fillRect(0, 0, w, h);
 
-      // Piso y techo neón
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(0, 34, w, 6);
       ctx.fillRect(0, h - 34, w, 6);
@@ -1108,7 +1427,6 @@
         ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
       });
 
-      // Jugador neón
       ctx.beginPath();
       ctx.arc(px, playerY, pr, 0, Math.PI * 2);
       ctx.fillStyle = '#38bdf8';
@@ -1130,7 +1448,7 @@
   }
 
   // =========================================================================
-  // INICIALIZADOR PRINCIPAL DEL SELECTOR DE 6 JUEGOS NEÓN
+  // INICIALIZADOR PRINCIPAL DEL SELECTOR DE 6 JUEGOS + REACTOR DE ENERGÍA
   // =========================================================================
   window.initCashPlayArcade = function (rootId) {
     const root = document.getElementById(rootId);
@@ -1147,21 +1465,34 @@
 
     root.innerHTML = `
       <div style="background:#131c31;border:1px solid #253354;border-radius:18px;padding:15px;margin-bottom:18px;">
-        <!-- COFRE DE TIEMPO ACTIVO ESCALONADO -->
-        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:10px 12px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <!-- CONTADOR DE VÍDEOS MONETAG CON BÔNUS EXTRA CADA 5 VÍDEOS -->
+        <div style="background:#0f172a;border:1px solid #263356;border-radius:12px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div style="flex:1;">
+            <div id="cp-adcount-txt" style="font-size:11.5px;font-weight:700;color:#fde68a;margin-bottom:5px;">🎬 Vídeos hoje: 0 (faltam 5 para +15 moedas)</div>
+            <div style="height:5px;background:#1e293b;border-radius:999px;overflow:hidden;">
+              <div id="cp-adcount-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#f59e0b,#fbbf24);transition:width 0.3s;"></div>
+            </div>
+          </div>
+          <button id="cp-adcount-btn" disabled style="padding:7px 10px;border:none;border-radius:8px;background:#1e293b;color:#94a3b8;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">0/5</button>
+        </div>
+
+        <!-- COFRE DE TIEMPO ACTIVO + BOTÓN REACTOR DE ENERGÍA -->
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <div style="flex:1;">
             <div id="cp-chest-txt" style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:6px;">⏳ Baú #1: jogue 30s</div>
             <div style="height:6px;background:#1e293b;border-radius:999px;overflow:hidden;">
               <div id="cp-chest-bar" style="height:100%;width:0%;background:#10b981;transition:width 0.3s;"></div>
             </div>
           </div>
-          <button id="cp-chest-btn" disabled style="padding:8px 12px;border:none;border-radius:8px;background:#1e293b;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">0%</button>
+          <button id="cp-chest-btn" disabled style="padding:8px 10px;border:none;border-radius:8px;background:#1e293b;color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;">0%</button>
+          <button id="cp-reactor-open-btn" style="padding:8px 10px;border:1px solid #38bdf8;border-radius:8px;background:rgba(56,189,248,0.14);color:#38bdf8;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;">🎡 Reator</button>
         </div>
 
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;">
           <div>
             <h3 style="margin:0;font-size:16px;font-weight:800;">🕹️ CashPlay Arcade Neon (6 Jogos)</h3>
             <p id="cp-games-quota" style="margin:3px 0 0;font-size:11.5px;color:#38bdf8;"></p>
+            <span id="cp-reactor-active-tag" style="display:none;margin-top:4px;font-size:11px;font-weight:800;color:#34d399;background:rgba(16,185,129,0.15);padding:2px 8px;border-radius:999px;"></span>
           </div>
           <button id="cp-sound-btn" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">🔊</button>
         </div>
@@ -1186,17 +1517,51 @@
 
     updateQuotaBadge();
     updateChestUI();
+    updateReactorStatusBadge();
+    updateAdCounterUI();
+
+    document.getElementById('cp-adcount-btn').onclick = async function () {
+      const d = getAdCounterData();
+      const earned = Math.min(AD_MILESTONE_MAX, Math.floor(d.views / AD_MILESTONE_STEP));
+      if (earned <= d.claimedMilestones || d.claimedMilestones >= AD_MILESTONE_MAX) return;
+      const userId = localStorage.getItem('cashplay_uid');
+      if (!userId) return;
+      this.disabled = true;
+      this.textContent = '⏳...';
+      try {
+        const res = await fetch('/api/ad-milestone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const json = await res.json();
+        if (json && json.ok) {
+          d.claimedMilestones += 1;
+          saveAdCounterData(d);
+          if (typeof window.updateBalanceUI === 'function') window.updateBalanceUI(json.balance);
+          alert(`🎬 Bônus do Contador de Vídeos! +${json.reward} moedas creditadas!`);
+        } else {
+          updateAdCounterUI();
+        }
+      } catch (e) {
+        updateAdCounterUI();
+      }
+    };
+
+    document.getElementById('cp-reactor-open-btn').onclick = () => openEnergyReactorModal();
 
     document.getElementById('cp-sound-btn').onclick = function () {
       soundEnabled = !soundEnabled;
       this.textContent = soundEnabled ? '🔊' : '🔇';
     };
 
-    document.getElementById('cp-chest-btn').onclick = () => {
+    document.getElementById('cp-chest-btn').onclick = function () {
       if (activeSeconds < getChestTargetSeconds() || getChestClaims() >= CHEST_DAILY_LIMIT) return;
       const directLink = window.MONETAG_DIRECT_LINK || 'https://uplcm.com/4/12319298';
-      localStorage.setItem('cp_pending_chest_reward', JSON.stringify({ openedAt: Date.now() }));
+      const openedAt = Date.now();
+      localStorage.setItem('cp_pending_chest_reward', JSON.stringify({ openedAt }));
       window.open(directLink, '_blank', 'noopener');
+      runLiveAdCountdown(this, openedAt, AD_WAIT_SECONDS, checkPendingArcadeRewards);
     };
 
     const stage = document.getElementById('cp-arcade-stage');

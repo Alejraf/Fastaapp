@@ -283,6 +283,58 @@ app.post('/api/game-reward', async (req, res) => {
   }
 });
 
+
+// Hito de Contador de Anuncios Monetag (+15 monedas cada 5 anuncios vistos, máx. 4 hitos/día)
+app.post('/api/ad-milestone', async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    if (!userId || typeof userId !== 'string') {
+      return res.status(400).json({ ok: false, error: 'INVALID_USER' });
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const REWARD = 15;
+    const MAX_MILESTONES = 4;
+
+    if (db) {
+      const userRef = db.collection('users').doc(userId);
+      const out = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists) throw new Error('NO_USER');
+        const data = snap.data() || {};
+        const stats = data.adMilestoneStats || { date: today, count: 0 };
+        const countToday = stats.date === today ? Number(stats.count || 0) : 0;
+        if (countToday >= MAX_MILESTONES) {
+          return { limitReached: true, balance: Number(data.balance || 0) };
+        }
+        const nextBal = Number(data.balance || 0) + REWARD;
+        tx.update(userRef, {
+          balance: nextBal,
+          adMilestoneStats: { date: today, count: countToday + 1 },
+          lastActive: new Date().toISOString()
+        });
+        const txRef = db.collection('transactions').doc();
+        tx.set(txRef, {
+          userId,
+          type: 'monetag_ad_milestone',
+          milestone: countToday + 1,
+          amount: REWARD,
+          createdAt: new Date().toISOString()
+        });
+        return { limitReached: false, balance: nextBal, milestone: countToday + 1 };
+      });
+      if (out.limitReached) return res.status(429).json({ ok: false, error: 'DAILY_MILESTONE_LIMIT' });
+      return res.json({ ok: true, reward: REWARD, balance: out.balance, milestone: out.milestone });
+    }
+
+    const u = memUsers[userId] || { userId, balance: 200, adActionsCount: 0 };
+    u.balance += REWARD;
+    memUsers[userId] = u;
+    return res.json({ ok: true, reward: REWARD, balance: u.balance, milestone: 1 });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: 'SERVER_ERROR' });
+  }
+});
+
 // Postback S2S de Offerwalls
 app.get('/api/postback', async (req, res) => {
   try {

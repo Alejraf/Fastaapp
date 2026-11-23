@@ -381,11 +381,34 @@
       }
     };
 
+    function startButtonCountdown(btnId, ts, totalSec, restoreFn) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      clearInterval(btn._cdTimer);
+      function tick() {
+        const elapsed = (Date.now() - ts) / 1000;
+        const rem = Math.ceil(totalSec - elapsed);
+        if (rem > 0) {
+          btn.disabled = true;
+          btn.textContent = `⏳ Validando anúncio... ${rem}s`;
+        } else {
+          clearInterval(btn._cdTimer);
+          btn.disabled = false;
+          btn.textContent = '✅ Confirmando recompensa...';
+          if (restoreFn) restoreFn();
+        }
+      }
+      tick();
+      btn._cdTimer = setInterval(tick, 400);
+    }
+
     function claimDailyStreak() {
       const today = new Date().toISOString().slice(0, 10);
-      localStorage.setItem('cp_streak_pending', JSON.stringify({ date: today, ts: Date.now() }));
+      const ts = Date.now();
+      localStorage.setItem('cp_streak_pending', JSON.stringify({ date: today, ts }));
       window.open(window.MONETAG_DIRECT_LINK, '_blank', 'noopener');
-      toast('Assista ao anúncio por alguns segundos e volte para liberar sua sequência!');
+      startButtonCountdown('btn-claim-streak', ts, 5, checkStreakReturn);
+      toast('⏳ Aguarde 5s no patrocinador e volte para liberar sua sequência!');
     }
 
     async function checkStreakReturn() {
@@ -393,7 +416,13 @@
       if (!raw) return;
       try {
         const p = JSON.parse(raw);
-        if ((Date.now() - p.ts) / 1000 < 5) return;
+        const elapsed = (Date.now() - p.ts) / 1000;
+        if (elapsed < 5) {
+          const rem = Math.ceil(5 - elapsed);
+          toast(`⏳ Faltam ${rem}s no anúncio para validar sua sequência!`);
+          startButtonCountdown('btn-claim-streak', p.ts, 5, checkStreakReturn);
+          return;
+        }
         localStorage.removeItem('cp_streak_pending');
         const res = await fetch('/api/streak-claim', {
           method: 'POST',
@@ -404,6 +433,7 @@
         if (data && data.ok) {
           window.updateBalanceUI(data.balance);
           renderStreakUI(data.streakDay, true);
+          if (typeof window.recordMonetagAdView === 'function') window.recordMonetagAdView();
           toast(`🔥 Sequência Dia ${data.streakDay}: +${data.reward} moedas creditadas!`);
         } else if (data && data.error) {
           toast(data.error);
@@ -417,9 +447,11 @@
         toast('Você já resgatou o bônus diário hoje!');
         return;
       }
-      localStorage.setItem('cp_daily_pending', JSON.stringify({ date: today, ts: Date.now() }));
+      const ts = Date.now();
+      localStorage.setItem('cp_daily_pending', JSON.stringify({ date: today, ts }));
       window.open(window.MONETAG_DIRECT_LINK, '_blank', 'noopener');
-      toast('Assista ao anúncio por alguns segundos e volte para receber +10 moedas!');
+      startButtonCountdown('btn-daily-bonus', ts, 5, checkDailyReturn);
+      toast('⏳ Aguarde 5s no anúncio e volte para receber +10 moedas!');
     };
 
     async function checkDailyReturn() {
@@ -427,7 +459,13 @@
       if (!raw) return;
       try {
         const p = JSON.parse(raw);
-        if ((Date.now() - p.ts) / 1000 < 5) return;
+        const elapsed = (Date.now() - p.ts) / 1000;
+        if (elapsed < 5) {
+          const rem = Math.ceil(5 - elapsed);
+          toast(`⏳ Faltam ${rem}s no anúncio para validar seu bônus diário!`);
+          startButtonCountdown('btn-daily-bonus', p.ts, 5, checkDailyReturn);
+          return;
+        }
         localStorage.removeItem('cp_daily_pending');
         const res = await fetch('/api/daily-bonus', {
           method: 'POST',
@@ -438,6 +476,9 @@
         if (data && data.ok) {
           localStorage.setItem('cp_daily_claimed', p.date);
           window.updateBalanceUI(data.balance);
+          if (typeof window.recordMonetagAdView === 'function') window.recordMonetagAdView();
+          const btn = document.getElementById('btn-daily-bonus');
+          if (btn) { btn.disabled = true; btn.textContent = '✅ Bônus Diário Resgatado Hoje'; }
           toast('🎉 Bônus diário de +10 moedas creditado!');
         } else if (data && data.error) {
           toast(data.error);
@@ -534,7 +575,7 @@
 
     window.loadUser();
   </script>
-  <script src="/games.js?v=4.0"></script>
+  <script src="/games.js?v=4.2"></script>
   <script>
     if (typeof window.initCashPlayArcade === 'function') {
       window.initCashPlayArcade('cashplay-arcade-root');
