@@ -1,8 +1,14 @@
-// CashPlay Arcade + Playtime Chest v3.0
+// CashPlay Arcade Neon 6-in-1 + Playtime Chest v4.0
 // Incluye:
 // - Cofre de Tiempo Activo escalonado (1º baú en 30s, 2º en 90s, siguientes en 180s -> +5 monedas al abrir con anuncio Monetag, máx. 6/día)
 // - Multiplicador x2 voluntario al subir de nivel (+6 monedas vs +3 monedas, respetando el tope diario de 10 cupos)
-// - 3 juegos clásicos legales: 2048 Fusion, Memory Match, Neon Serpent
+// - 6 Minijuegos Neon Canvas 2D con Audio Sintetizado + Vibración Háptica + Partículas:
+//   1. Knife Hit Neon (Lanzamiento de cuchillos al núcleo giratorio)
+//   2. Plinko Arcade (Esferas rebotando entre pines luminosos hacia multiplicadores)
+//   3. Stack Tower Neon (Apilar bloques con cortes milimétricos y combos)
+//   4. Helix Smash (Caída libre rompiendo anillos de color)
+//   5. Gem Slasher (Cortar gemas en el aire con estela neón y esquivar bombas)
+//   6. Gravity Dash (Invertir gravedad al toque esquivando barreras láser)
 
 (function () {
   const DAILY_LEVEL_LIMIT = 10;
@@ -13,6 +19,42 @@
 
   let activeSeconds = 0;
   let lastActionTs = 0;
+  let activeLoopId = null;
+  let soundEnabled = true;
+  let audioCtx = null;
+
+  // --- SINTETIZADOR DE SONIDO WEB AUDIO (Cero archivos MP3 externos) ---
+  function playTone(freq, type, duration, vol) {
+    if (!soundEnabled) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(vol || 0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (duration || 0.12));
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + (duration || 0.12));
+    } catch (e) {}
+  }
+
+  function vibrate(ms) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(ms);
+    } catch (e) {}
+  }
+
+  function stopCurrentLoop() {
+    if (activeLoopId) {
+      cancelAnimationFrame(activeLoopId);
+      clearInterval(activeLoopId);
+      activeLoopId = null;
+    }
+  }
 
   function getTodayKey() {
     return new Date().toISOString().slice(0, 10);
@@ -20,9 +62,9 @@
 
   function getChestTargetSeconds() {
     const used = getChestClaims();
-    if (used === 0) return 30;  // 1º cofre del día en 30s para enganchar rápido
-    if (used === 1) return 90;  // 2º cofre en 90s
-    return 180;                 // 3º al 6º cofre en 180s
+    if (used === 0) return 30;
+    if (used === 1) return 90;
+    return 180;
   }
 
   function getDailyClaims() {
@@ -58,13 +100,12 @@
     updateChestUI();
   }
 
-  // Registra actividad real del jugador (solo suma tiempo mientras juega de verdad)
   function registerGameActivity() {
     const now = Date.now();
     const target = getChestTargetSeconds();
     if (lastActionTs > 0) {
       const delta = Math.min(8, (now - lastActionTs) / 1000);
-      if (delta > 0.2 && activeSeconds < target) {
+      if (delta > 0.15 && activeSeconds < target) {
         activeSeconds = Math.min(target, activeSeconds + delta);
         updateChestUI();
       }
@@ -129,6 +170,10 @@
   }
 
   function showLevelUpModal(gameName, levelReached, onContinue) {
+    playTone(587.33, 'triangle', 0.14, 0.12);
+    setTimeout(() => playTone(880, 'triangle', 0.25, 0.14), 110);
+    vibrate([40, 30, 60]);
+
     const used = getDailyClaims();
     const remainingSlots = DAILY_LEVEL_LIMIT - used;
     const canClaim = remainingSlots > 0;
@@ -138,33 +183,33 @@
     if (!overlay) {
       overlay = document.createElement('div');
       overlay.id = 'cp-levelup-overlay';
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(9,13,26,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(6,10,22,0.9);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
       document.body.appendChild(overlay);
     }
 
     overlay.innerHTML = `
-      <div style="background:#131b31;border:1px solid #263356;border-radius:16px;max-width:360px;width:100%;padding:20px;color:#fff;text-align:center;font-family:inherit;">
-        <div style="font-size:34px;margin-bottom:6px;">🏆</div>
-        <h3 style="margin:0 0 6px;font-size:19px;">Nível ${levelReached} Concluído!</h3>
-        <p style="margin:0 0 14px;font-size:13px;color:#9fb0d6;">${gameName}</p>
+      <div style="background:linear-gradient(160deg,#131c33,#0c1324);border:1px solid #334155;border-radius:18px;max-width:360px;width:100%;padding:22px;color:#fff;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.65);">
+        <div style="font-size:40px;margin-bottom:6px;">🏆</div>
+        <h3 style="margin:0 0 4px;font-size:20px;font-weight:900;color:#38bdf8;">Nível ${levelReached} Concluído!</h3>
+        <p style="margin:0 0 16px;font-size:13px;color:#94a3b8;">${gameName}</p>
         ${
           canClaim
             ? `
               ${
                 canDouble
-                  ? `<button id="cp-claim-x2-btn" style="width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#0b1120;font-weight:800;font-size:14px;cursor:pointer;margin-bottom:9px;">
+                  ? `<button id="cp-claim-x2-btn" style="width:100%;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#0b1120;font-weight:900;font-size:14px;cursor:pointer;margin-bottom:9px;box-shadow:0 4px 16px rgba(245,158,11,0.35);">
                       🔥 Duplicar para +${LEVEL_REWARD_COINS * 2} Moedas (Ver Patrocinador)
                      </button>`
                   : ''
               }
-              <button id="cp-claim-level-btn" style="width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:10px;">
+              <button id="cp-claim-level-btn" style="width:100%;padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:10px;">
                 🎬 Coletar +${LEVEL_REWARD_COINS} Moedas (Ver Anúncio)
               </button>`
             : `<div style="padding:10px;border-radius:10px;background:#1e293b;color:#94a3b8;font-size:12px;margin-bottom:10px;">
                 Limite diário de ${DAILY_LEVEL_LIMIT} bônus atingido. Continue jogando livremente!
                </div>`
         }
-        <button id="cp-skip-level-btn" style="width:100%;padding:9px;border:1px solid #334155;border-radius:10px;background:transparent;color:#94a3b8;font-size:12px;cursor:pointer;">
+        <button id="cp-skip-level-btn" style="width:100%;padding:10px;border:1px solid #334155;border-radius:12px;background:transparent;color:#94a3b8;font-size:12px;font-weight:700;cursor:pointer;">
           Continuar sem bônus
         </button>
       </div>
@@ -188,7 +233,6 @@
   }
 
   async function checkPendingArcadeRewards() {
-    // 1. Verificar recompensa de subida de nivel (x1 o x2)
     const rawLevel = localStorage.getItem('cp_pending_game_reward');
     if (rawLevel) {
       try {
@@ -216,7 +260,6 @@
       } catch (e) {}
     }
 
-    // 2. Verificar recompensa de Cofre de Tiempo Activo
     const rawChest = localStorage.getItem('cp_pending_chest_reward');
     if (rawChest) {
       try {
@@ -250,277 +293,862 @@
     }
   });
 
-  // JUEGO 1: 2048 FUSION
-  function mount2048(container) {
-    let grid = Array(16).fill(0);
-    let score = 0;
-    let level = 1;
-    const targets = [64, 128, 256, 512, 1024, 2048];
-
-    function addTile() {
-      const empty = grid.map((v, i) => (v === 0 ? i : -1)).filter((i) => i !== -1);
-      if (!empty.length) return;
-      const idx = empty[Math.floor(Math.random() * empty.length)];
-      grid[idx] = Math.random() < 0.9 ? 2 : 4;
-    }
-
-    function slide(row) {
-      const arr = row.filter((v) => v);
-      for (let i = 0; i < arr.length - 1; i++) {
-        if (arr[i] === arr[i + 1]) {
-          arr[i] *= 2;
-          score += arr[i];
-          arr[i + 1] = 0;
-        }
-      }
-      const clean = arr.filter((v) => v);
-      while (clean.length < 4) clean.push(0);
-      return clean;
-    }
-
-    function move(dir) {
-      registerGameActivity();
-      const prev = grid.join(',');
-      for (let r = 0; r < 4; r++) {
-        let line = [];
-        for (let c = 0; c < 4; c++) {
-          const idx = dir === 'L' || dir === 'R' ? r * 4 + c : c * 4 + r;
-          line.push(grid[idx]);
-        }
-        if (dir === 'R' || dir === 'D') line.reverse();
-        line = slide(line);
-        if (dir === 'R' || dir === 'D') line.reverse();
-        for (let c = 0; c < 4; c++) {
-          const idx = dir === 'L' || dir === 'R' ? r * 4 + c : c * 4 + r;
-          grid[idx] = line[c];
-        }
-      }
-      if (prev !== grid.join(',')) {
-        addTile();
-        render();
-        const maxTile = Math.max(...grid);
-        const goal = targets[Math.min(level - 1, targets.length - 1)];
-        if (maxTile >= goal) {
-          const completed = level;
-          level++;
-          showLevelUpModal('2048 Fusion', completed, render);
-        }
-      }
-    }
-
-    function render() {
-      const goal = targets[Math.min(level - 1, targets.length - 1)];
-      container.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;">
-          <span><strong>Nível ${level}</strong> (Meta: bloco ${goal})</span>
-          <span>Pontos: <strong>${score}</strong></span>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#0f172a;padding:10px;border-radius:12px;">
-          ${grid
-            .map(
-              (v) => `
-            <div style="aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;background:${
-              v ? '#1e3a8a' : '#1e293b'
-            };color:${v ? '#fff' : 'transparent'};">
-              ${v || 0}
-            </div>`
-            )
-            .join('')}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:190px;margin:12px auto 0;">
-          <div></div><button data-d="U" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▲</button><div></div>
-          <button data-d="L" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">◀</button>
-          <button data-d="D" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▼</button>
-          <button data-d="R" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▶</button>
-        </div>
-      `;
-      container.querySelectorAll('button[data-d]').forEach((b) => {
-        b.onclick = () => move(b.dataset.d);
-      });
-    }
-
-    addTile();
-    addTile();
-    render();
+  // Helper para crear Canvas responsivo con soporte Retina/DPR
+  function setupCanvas(container, heightPx) {
+    container.innerHTML = '';
+    const canvas = document.createElement('canvas');
+    const width = Math.min(460, container.clientWidth || 340);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = width * dpr;
+    canvas.height = heightPx * dpr;
+    canvas.style.width = '100%';
+    canvas.style.height = heightPx + 'px';
+    canvas.style.borderRadius = '14px';
+    canvas.style.background = '#070b16';
+    canvas.style.border = '1px solid #1e293b';
+    canvas.style.display = 'block';
+    canvas.style.touchAction = 'none';
+    container.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return { canvas, ctx, w: width, h: heightPx };
   }
 
-  // JUEGO 2: MEMORY MATCH
-  function mountMemory(container) {
-    const icons = ['💎', '🚀', '⚡', '🎯', '🍀', '🔥', '👑', '🎲'];
+  // =========================================================================
+  // JUEGO 1: KNIFE HIT NEON
+  // =========================================================================
+  function mountKnifeHit(container) {
+    stopCurrentLoop();
+    const { canvas, ctx, w, h } = setupCanvas(container, 360);
     let level = 1;
-    let cards = [];
-    let flipped = [];
-    let matched = [];
-    let lock = false;
+    let stuckAngles = [];
+    let flyingKnife = null;
+    let targetAngle = 0;
+    let knivesLeft = 6;
+    let particles = [];
+    let shake = 0;
+    let paused = false;
 
-    function startLevel() {
-      const pairs = Math.min(4 + level, 8);
-      const selected = icons.slice(0, pairs);
-      cards = [...selected, ...selected].sort(() => Math.random() - 0.5);
-      flipped = [];
-      matched = [];
-      lock = false;
-      render();
+    function initLevel() {
+      knivesLeft = Math.min(11, 5 + level);
+      stuckAngles = [];
+      const preStuck = Math.min(3, Math.floor(level / 2));
+      for (let i = 0; i < preStuck; i++) {
+        stuckAngles.push((Math.PI * 2 * i) / preStuck);
+      }
+      flyingKnife = null;
+      paused = false;
     }
 
-    function flipCard(idx) {
+    function spawnParticles(x, y, color, count) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 2 + Math.random() * 5;
+        particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, color });
+      }
+    }
+
+    function throwKnife() {
       registerGameActivity();
-      if (lock || flipped.includes(idx) || matched.includes(idx)) return;
-      flipped.push(idx);
-      render();
-      if (flipped.length === 2) {
-        lock = true;
-        const [a, b] = flipped;
-        if (cards[a] === cards[b]) {
-          matched.push(a, b);
-          flipped = [];
-          lock = false;
-          render();
-          if (matched.length === cards.length) {
-            const completed = level;
-            level++;
-            setTimeout(() => showLevelUpModal('Memory Match', completed, startLevel), 250);
-          }
-        } else {
-          setTimeout(() => {
-            flipped = [];
-            lock = false;
-            render();
-          }, 650);
-        }
+      if (paused || flyingKnife || knivesLeft <= 0) return;
+      flyingKnife = { y: h - 55 };
+      playTone(420, 'sine', 0.08, 0.08);
+    }
+
+    canvas.onpointerdown = (e) => {
+      e.preventDefault();
+      throwKnife();
+    };
+
+    const cx = w / 2;
+    const cy = 125;
+    const radius = 50;
+
+    function loop(ts) {
+      if (!document.body.contains(canvas)) return;
+      ctx.save();
+      if (shake > 0) {
+        ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+        shake *= 0.85;
       }
-    }
 
-    function render() {
-      container.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:13px;">
-          <span><strong>Nível ${level}</strong></span>
-          <span>Pares: <strong>${matched.length / 2}/${cards.length / 2}</strong></span>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-          ${cards
-            .map((ic, i) => {
-              const open = flipped.includes(i) || matched.includes(i);
-              return `<button data-i="${i}" style="aspect-ratio:1;border-radius:10px;border:1px solid #334155;background:${
-                open ? '#1d4ed8' : '#1e293b'
-              };font-size:24px;cursor:pointer;">${open ? ic : '❓'}</button>`;
-            })
-            .join('')}
-        </div>
-      `;
-      container.querySelectorAll('button[data-i]').forEach((b) => {
-        b.onclick = () => flipCard(Number(b.dataset.i));
-      });
-    }
+      ctx.fillStyle = '#070b16';
+      ctx.fillRect(0, 0, w, h);
 
-    startLevel();
-  }
+      // Rotación dinámica con cambio de ritmo según nivel
+      const speed = (0.032 + level * 0.004) * (level % 3 === 0 ? Math.sin(ts * 0.002) * 1.4 : 1);
+      if (!paused) targetAngle += speed;
 
-  // JUEGO 3: NEON SERPENT
-  let serpentTimer = null;
-  function mountSerpent(container) {
-    if (serpentTimer) clearInterval(serpentTimer);
-    const size = 14;
-    let snake = [{ x: 7, y: 7 }];
-    let dir = { x: 1, y: 0 };
-    let food = { x: 10, y: 7 };
-    let eaten = 0;
-    let level = 1;
-    const goalPerLevel = 5;
-
-    function placeFood() {
-      food = {
-        x: Math.floor(Math.random() * size),
-        y: Math.floor(Math.random() * size)
-      };
-    }
-
-    function step() {
-      const head = {
-        x: (snake[0].x + dir.x + size) % size,
-        y: (snake[0].y + dir.y + size) % size
-      };
-      if (snake.some((s) => s.x === head.x && s.y === head.y)) {
-        snake = [{ x: 7, y: 7 }];
-        eaten = 0;
-        render();
-        return;
-      }
-      snake.unshift(head);
-      if (head.x === food.x && head.y === food.y) {
-        eaten++;
-        placeFood();
-        if (eaten >= goalPerLevel) {
-          eaten = 0;
-          const completed = level;
-          level++;
-          clearInterval(serpentTimer);
-          showLevelUpModal('Neon Serpent', completed, () => {
-            serpentTimer = setInterval(step, 220);
-            render();
+      // Actualizar cuchillo en vuelo
+      if (flyingKnife && !paused) {
+        flyingKnife.y -= 24;
+        if (flyingKnife.y <= cy + radius + 12) {
+          const hitAngle = (Math.PI / 2 - targetAngle) % (Math.PI * 2);
+          const normHit = (hitAngle + Math.PI * 2) % (Math.PI * 2);
+          const collision = stuckAngles.some((a) => {
+            const diff = Math.abs(((a - normHit + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+            return diff < 0.24;
           });
-          return;
+
+          if (collision) {
+            playTone(130, 'sawtooth', 0.25, 0.15);
+            vibrate(120);
+            shake = 12;
+            spawnParticles(cx, cy + radius, '#ef4444', 22);
+            flyingKnife = null;
+            initLevel();
+          } else {
+            stuckAngles.push(normHit);
+            knivesLeft--;
+            flyingKnife = null;
+            shake = 6;
+            playTone(680, 'triangle', 0.09, 0.1);
+            vibrate(25);
+            spawnParticles(cx, cy + radius, '#38bdf8', 12);
+
+            if (knivesLeft <= 0) {
+              paused = true;
+              spawnParticles(cx, cy, '#f59e0b', 35);
+              const completed = level;
+              level++;
+              setTimeout(() => showLevelUpModal('Knife Hit Neon', completed, initLevel), 280);
+            }
+          }
         }
-      } else {
-        snake.pop();
       }
-      render();
+
+      // Dibujar cuchillos clavados
+      stuckAngles.forEach((a) => {
+        const ang = a + targetAngle;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(ang);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillRect(-3, radius - 4, 6, 36);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(-5, radius + 24, 10, 12);
+        ctx.restore();
+      });
+
+      // Dibujar núcleo neón
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(targetAngle);
+      const grad = ctx.createRadialGradient(0, 0, 8, 0, 0, radius);
+      grad.addColorStop(0, '#38bdf8');
+      grad.addColorStop(0.6, '#1d4ed8');
+      grad.addColorStop(1, '#0f172a');
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#60a5fa';
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff';
+      ctx.font = '800 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`NV ${level}`, 0, 0);
+      ctx.restore();
+
+      // Cuchillo listo o volando
+      const ky = flyingKnife ? flyingKnife.y : h - 55;
+      if (knivesLeft > 0 || flyingKnife) {
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.moveTo(cx, ky - 22);
+        ctx.lineTo(cx + 5, ky + 6);
+        ctx.lineTo(cx - 5, ky + 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(cx - 5, ky + 6, 10, 14);
+      }
+
+      // Indicador de cuchillos restantes
+      for (let i = 0; i < knivesLeft; i++) {
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(16, h - 22 - i * 11, 18, 5);
+      }
+
+      // Partículas
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 0.04;
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, 4, 4);
+      });
+      ctx.globalAlpha = 1;
+      particles = particles.filter((p) => p.life > 0);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Toque na tela para lançar a lâmina', cx, h - 12);
+
+      ctx.restore();
+      activeLoopId = requestAnimationFrame(loop);
     }
 
-    function render() {
-      if (!document.getElementById('cp-serpent-grid')) {
-        container.innerHTML = `
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;">
-            <span id="cp-serp-lvl"></span>
-            <span id="cp-serp-pts"></span>
-          </div>
-          <div id="cp-serpent-grid" style="display:grid;grid-template-columns:repeat(${size},1fr);gap:2px;background:#0f172a;padding:8px;border-radius:12px;"></div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:190px;margin:10px auto 0;">
-            <div></div><button data-sd="U" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▲</button><div></div>
-            <button data-sd="L" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">◀</button>
-            <button data-sd="D" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▼</button>
-            <button data-sd="R" style="padding:10px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-weight:700;">▶</button>
-          </div>
-        `;
-        container.querySelectorAll('button[data-sd]').forEach((b) => {
-          b.onclick = () => {
-            registerGameActivity();
-            const d = b.dataset.sd;
-            if (d === 'U' && dir.y !== 1) dir = { x: 0, y: -1 };
-            if (d === 'D' && dir.y !== -1) dir = { x: 0, y: 1 };
-            if (d === 'L' && dir.x !== 1) dir = { x: -1, y: 0 };
-            if (d === 'R' && dir.x !== -1) dir = { x: 1, y: 0 };
-          };
+    initLevel();
+    activeLoopId = requestAnimationFrame(loop);
+  }
+
+  // =========================================================================
+  // JUEGO 2: PLINKO ARCADE
+  // =========================================================================
+  function mountPlinko(container) {
+    stopCurrentLoop();
+    const { canvas, ctx, w, h } = setupCanvas(container, 360);
+    let level = 1;
+    let points = 0;
+    let targetPoints = 150;
+    let balls = [];
+    let pins = [];
+    const multipliers = [10, 25, 50, 100, 50, 25, 10];
+    let paused = false;
+
+    const rows = 7;
+    const startY = 68;
+    const spacingY = 34;
+    const spacingX = Math.min(42, (w - 40) / 8);
+
+    for (let r = 0; r < rows; r++) {
+      const cols = r + 3;
+      const rowWidth = (cols - 1) * spacingX;
+      for (let c = 0; c < cols; c++) {
+        pins.push({
+          x: w / 2 - rowWidth / 2 + c * spacingX,
+          y: startY + r * spacingY,
+          glow: 0
         });
       }
-      document.getElementById('cp-serp-lvl').innerHTML = `<strong>Nível ${level}</strong>`;
-      document.getElementById('cp-serp-pts').innerHTML = `Energia: <strong>${eaten}/${goalPerLevel}</strong>`;
-      const gridEl = document.getElementById('cp-serpent-grid');
-      let cells = '';
-      for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
-          const isSnake = snake.some((s) => s.x === x && s.y === y);
-          const isFood = food.x === x && food.y === y;
-          cells += `<div style="aspect-ratio:1;border-radius:3px;background:${
-            isSnake ? '#22c55e' : isFood ? '#f59e0b' : '#1e293b'
-          };"></div>`;
-        }
-      }
-      gridEl.innerHTML = cells;
     }
 
-    render();
-    serpentTimer = setInterval(step, 220);
+    function dropBall(clientX) {
+      registerGameActivity();
+      if (paused || balls.length >= 6) return;
+      const rect = canvas.getBoundingClientRect();
+      const relX = clientX ? clientX - rect.left : w / 2;
+      const clampedX = Math.max(w * 0.25, Math.min(w * 0.75, relX)) + (Math.random() - 0.5) * 8;
+      balls.push({ x: clampedX, y: 26, vx: (Math.random() - 0.5) * 1.5, vy: 1, r: 6 });
+      playTone(520, 'sine', 0.06, 0.07);
+    }
+
+    canvas.onpointerdown = (e) => {
+      e.preventDefault();
+      dropBall(e.clientX);
+    };
+
+    function loop() {
+      if (!document.body.contains(canvas)) return;
+      ctx.fillStyle = '#070b16';
+      ctx.fillRect(0, 0, w, h);
+
+      // HUD superior
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '700 13px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`Nível ${level}`, 14, 24);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText(`Meta: ${points} / ${targetPoints} pts`, w - 14, 24);
+
+      // Dibujar pines
+      pins.forEach((p) => {
+        if (p.glow > 0) p.glow -= 0.06;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.glow > 0 ? 5.5 : 3.8, 0, Math.PI * 2);
+        ctx.fillStyle = p.glow > 0 ? '#38bdf8' : '#475569';
+        ctx.fill();
+      });
+
+      // Ranuras inferiores
+      const slotW = (w - 24) / multipliers.length;
+      const slotY = h - 42;
+      multipliers.forEach((val, i) => {
+        const sx = 12 + i * slotW;
+        const isJackpot = val === 100;
+        ctx.fillStyle = isJackpot ? 'rgba(245,158,11,0.28)' : val >= 50 ? 'rgba(16,185,129,0.22)' : 'rgba(37,99,235,0.2)';
+        ctx.fillRect(sx + 2, slotY, slotW - 4, 28);
+        ctx.strokeStyle = isJackpot ? '#f59e0b' : '#334155';
+        ctx.strokeRect(sx + 2, slotY, slotW - 4, 28);
+        ctx.fillStyle = isJackpot ? '#fbbf24' : '#e2e8f0';
+        ctx.font = '800 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`+${val}`, sx + slotW / 2, slotY + 18);
+      });
+
+      // Actualizar bolas
+      balls.forEach((b) => {
+        b.vy += 0.24;
+        b.x += b.vx;
+        b.y += b.vy;
+
+        if (b.x < 18) { b.x = 18; b.vx *= -0.7; }
+        if (b.x > w - 18) { b.x = w - 18; b.vx *= -0.7; }
+
+        pins.forEach((p) => {
+          const dx = b.x - p.x;
+          const dy = b.y - p.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < b.r + 4.2) {
+            const ang = Math.atan2(dy, dx);
+            b.x = p.x + Math.cos(ang) * (b.r + 4.5);
+            b.y = p.y + Math.sin(ang) * (b.r + 4.5);
+            b.vx = Math.cos(ang) * 2.4 + (Math.random() - 0.5) * 1.4;
+            b.vy = Math.abs(Math.sin(ang)) * 1.5;
+            p.glow = 1;
+            playTone(740, 'sine', 0.04, 0.04);
+          }
+        });
+
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fill();
+        ctx.strokeStyle = '#fef3c7';
+        ctx.stroke();
+
+        if (b.y >= slotY) {
+          b.done = true;
+          const idx = Math.min(multipliers.length - 1, Math.max(0, Math.floor((b.x - 12) / slotW)));
+          const gained = multipliers[idx];
+          points += gained;
+          playTone(gained >= 50 ? 880 : 600, 'triangle', 0.12, 0.09);
+          vibrate(20);
+
+          if (points >= targetPoints && !paused) {
+            paused = true;
+            const completed = level;
+            level++;
+            points = 0;
+            targetPoints = 150 + (level - 1) * 60;
+            setTimeout(() => {
+              showLevelUpModal('Plinko Arcade', completed, () => {
+                paused = false;
+              });
+            }, 220);
+          }
+        }
+      });
+
+      balls = balls.filter((b) => !b.done);
+      activeLoopId = requestAnimationFrame(loop);
+    }
+
+    activeLoopId = requestAnimationFrame(loop);
   }
 
+  // =========================================================================
+  // JUEGO 3: STACK TOWER NEON
+  // =========================================================================
+  function mountStackTower(container) {
+    stopCurrentLoop();
+    const { canvas, ctx, w, h } = setupCanvas(container, 360);
+    let level = 1;
+    let blocks = [];
+    let current = null;
+    let combo = 0;
+    let paused = false;
+    const blockH = 22;
+    const goalBlocks = 8;
+
+    function resetTower() {
+      blocks = [{ x: w / 2 - 75, w: 150, color: '#2563eb' }];
+      combo = 0;
+      paused = false;
+      spawnNext();
+    }
+
+    function spawnNext() {
+      const prev = blocks[blocks.length - 1];
+      const hue = (blocks.length * 28 + level * 40) % 360;
+      current = {
+        x: 10,
+        w: prev.w,
+        dir: 1,
+        speed: 2.6 + level * 0.45 + blocks.length * 0.18,
+        color: `hsl(${hue}, 85%, 56%)`
+      };
+    }
+
+    function dropBlock() {
+      registerGameActivity();
+      if (paused || !current) return;
+      const prev = blocks[blocks.length - 1];
+      const delta = current.x - prev.x;
+
+      if (Math.abs(delta) <= 6) {
+        // Corte perfecto
+        combo++;
+        const bonusW = combo >= 3 ? Math.min(165, prev.w + 8) : prev.w;
+        blocks.push({ x: prev.x, w: bonusW, color: '#10b981' });
+        playTone(520 + combo * 70, 'triangle', 0.12, 0.1);
+        vibrate(30);
+      } else {
+        combo = 0;
+        const overlap = prev.w - Math.abs(delta);
+        if (overlap <= 6) {
+          playTone(140, 'sawtooth', 0.22, 0.14);
+          vibrate(100);
+          resetTower();
+          return;
+        }
+        const newX = delta > 0 ? current.x : prev.x;
+        blocks.push({ x: newX, w: overlap, color: current.color });
+        playTone(440, 'sine', 0.08, 0.08);
+      }
+
+      if (blocks.length - 1 >= goalBlocks) {
+        paused = true;
+        current = null;
+        const completed = level;
+        level++;
+        setTimeout(() => showLevelUpModal('Stack Tower Neon', completed, resetTower), 240);
+      } else {
+        spawnNext();
+      }
+    }
+
+    canvas.onpointerdown = (e) => {
+      e.preventDefault();
+      dropBlock();
+    };
+
+    function loop() {
+      if (!document.body.contains(canvas)) return;
+      ctx.fillStyle = '#070b16';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '700 13px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`Nível ${level} • Torre ${blocks.length - 1}/${goalBlocks}`, 14, 24);
+      if (combo > 1) {
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#34d399';
+        ctx.fillText(`COMBO x${combo} 🔥`, w - 14, 24);
+      }
+
+      const baseLine = h - 36;
+      blocks.forEach((b, idx) => {
+        const y = baseLine - idx * (blockH + 3);
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x, y, b.w, blockH);
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.strokeRect(b.x, y, b.w, blockH);
+      });
+
+      if (current && !paused) {
+        current.x += current.dir * current.speed;
+        if (current.x + current.w >= w - 8) { current.x = w - 8 - current.w; current.dir = -1; }
+        if (current.x <= 8) { current.x = 8; current.dir = 1; }
+        const cy = baseLine - blocks.length * (blockH + 3);
+        ctx.fillStyle = current.color;
+        ctx.fillRect(current.x, cy, current.w, blockH);
+      }
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Toque no momento exato para empilhar', w / 2, h - 12);
+
+      activeLoopId = requestAnimationFrame(loop);
+    }
+
+    resetTower();
+    activeLoopId = requestAnimationFrame(loop);
+  }
+
+  // =========================================================================
+  // JUEGO 4: HELIX SMASH
+  // =========================================================================
+  function mountHelixSmash(container) {
+    stopCurrentLoop();
+    const { canvas, ctx, w, h } = setupCanvas(container, 360);
+    let level = 1;
+    let ringAngle = 0;
+    let ballY = 95;
+    let ballVy = 0;
+    let holding = false;
+    let floorsCleared = 0;
+    const goalFloors = 10;
+    let paused = false;
+
+    function resetRun() {
+      floorsCleared = 0;
+      ballY = 95;
+      ballVy = 0;
+      holding = false;
+      paused = false;
+    }
+
+    canvas.onpointerdown = (e) => {
+      e.preventDefault();
+      registerGameActivity();
+      holding = true;
+    };
+    canvas.onpointerup = () => { holding = false; };
+    canvas.onpointerleave = () => { holding = false; };
+
+    function loop() {
+      if (!document.body.contains(canvas)) return;
+      ctx.fillStyle = '#070b16';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '700 13px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`Nível ${level}`, 14, 24);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText(`Andares: ${floorsCleared}/${goalFloors}`, w - 14, 24);
+
+      const cx = w / 2;
+      const ringY = 230;
+      const ringR = 82;
+
+      if (!paused) {
+        ringAngle += 0.045 + level * 0.006;
+        ballVy += holding ? 0.95 : 0.35;
+        ballY += ballVy;
+
+        if (ballY >= ringY - 12) {
+          // Verificar ángulo en la parte superior del anillo (-PI/2)
+          const topRel = ((-Math.PI / 2 - ringAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+          const isDanger = topRel > Math.PI * 1.35;
+
+          if (holding) {
+            if (isDanger) {
+              playTone(130, 'sawtooth', 0.25, 0.15);
+              vibrate(120);
+              resetRun();
+            } else {
+              floorsCleared++;
+              ballY = 85;
+              ballVy = 1.5;
+              playTone(540 + floorsCleared * 35, 'triangle', 0.09, 0.09);
+              vibrate(25);
+              if (floorsCleared >= goalFloors) {
+                paused = true;
+                const completed = level;
+                level++;
+                setTimeout(() => showLevelUpModal('Helix Smash', completed, resetRun), 220);
+              }
+            }
+          } else {
+            ballY = ringY - 12;
+            ballVy = -7.2;
+            playTone(320, 'sine', 0.05, 0.05);
+          }
+        }
+      }
+
+      // Dibujar anillo giratorio (zona segura azul / zona roja prohibida)
+      ctx.save();
+      ctx.translate(cx, ringY);
+      ctx.rotate(ringAngle);
+      ctx.lineWidth = 18;
+      ctx.beginPath();
+      ctx.arc(0, 0, ringR, 0, Math.PI * 1.35);
+      ctx.strokeStyle = holding ? '#f59e0b' : '#2563eb';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, ringR, Math.PI * 1.35, Math.PI * 2);
+      ctx.strokeStyle = '#ef4444';
+      ctx.stroke();
+      ctx.restore();
+
+      // Dibujar esfera con estela de fuego si mantiene presionado
+      ctx.beginPath();
+      ctx.arc(cx, ballY, 12, 0, Math.PI * 2);
+      ctx.fillStyle = holding ? '#f59e0b' : '#38bdf8';
+      ctx.fill();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Segure o dedo para quebrar na zona azul (evite o vermelho)', cx, h - 12);
+
+      activeLoopId = requestAnimationFrame(loop);
+    }
+
+    resetRun();
+    activeLoopId = requestAnimationFrame(loop);
+  }
+
+  // =========================================================================
+  // JUEGO 5: GEM SLASHER
+  // =========================================================================
+  function mountGemSlasher(container) {
+    stopCurrentLoop();
+    const { canvas, ctx, w, h } = setupCanvas(container, 360);
+    let level = 1;
+    let sliced = 0;
+    let goal = 12;
+    let items = [];
+    let trail = [];
+    let spawnTick = 0;
+    let paused = false;
+
+    function resetLevel() {
+      sliced = 0;
+      goal = 10 + level * 2;
+      items = [];
+      trail = [];
+      paused = false;
+    }
+
+    function checkSlice(x, y) {
+      registerGameActivity();
+      if (paused) return;
+      trail.push({ x, y, life: 1 });
+      items.forEach((it) => {
+        if (!it.hit && Math.hypot(it.x - x, it.y - y) < it.r + 14) {
+          it.hit = true;
+          if (it.bomb) {
+            playTone(120, 'sawtooth', 0.25, 0.16);
+            vibrate(140);
+            resetLevel();
+          } else {
+            sliced++;
+            playTone(660 + (sliced % 6) * 60, 'triangle', 0.08, 0.09);
+            vibrate(20);
+            if (sliced >= goal) {
+              paused = true;
+              const completed = level;
+              level++;
+              setTimeout(() => showLevelUpModal('Gem Slasher', completed, resetLevel), 220);
+            }
+          }
+        }
+      });
+    }
+
+    canvas.onpointermove = (e) => {
+      if (e.buttons === 1 || e.pointerType === 'touch') {
+        const r = canvas.getBoundingClientRect();
+        checkSlice(e.clientX - r.left, e.clientY - r.top);
+      }
+    };
+    canvas.onpointerdown = (e) => {
+      const r = canvas.getBoundingClientRect();
+      checkSlice(e.clientX - r.left, e.clientY - r.top);
+    };
+
+    function loop() {
+      if (!document.body.contains(canvas)) return;
+      ctx.fillStyle = '#070b16';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '700 13px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`Nível ${level}`, 14, 24);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`Gemas: ${sliced}/${goal}`, w - 14, 24);
+
+      if (!paused) {
+        spawnTick++;
+        if (spawnTick % Math.max(24, 46 - level * 3) === 0) {
+          const isBomb = Math.random() < 0.22;
+          items.push({
+            x: 40 + Math.random() * (w - 80),
+            y: h + 15,
+            vx: (Math.random() - 0.5) * 3.2,
+            vy: -(9.5 + Math.random() * 2.5),
+            r: 18,
+            bomb: isBomb,
+            icon: isBomb ? '💣' : ['💎', '🪙', '🔮', '⚡'][Math.floor(Math.random() * 4)]
+          });
+        }
+      }
+
+      items.forEach((it) => {
+        it.vy += 0.22;
+        it.x += it.vx;
+        it.y += it.vy;
+        if (!it.hit) {
+          ctx.font = '28px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(it.icon, it.x, it.y);
+        }
+      });
+      items = items.filter((it) => !it.hit && it.y < h + 40);
+
+      // Estela de corte neón
+      if (trail.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(trail[0].x, trail[0].y);
+        trail.forEach((p) => {
+          ctx.lineTo(p.x, p.y);
+          p.life -= 0.08;
+        });
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+      trail = trail.filter((p) => p.life > 0);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Deslize o dedo para cortar gemas e desviar das bombas', w / 2, h - 12);
+
+      activeLoopId = requestAnimationFrame(loop);
+    }
+
+    resetLevel();
+    activeLoopId = requestAnimationFrame(loop);
+  }
+
+  // =========================================================================
+  // JUEGO 6: GRAVITY DASH
+  // =========================================================================
+  function mountGravityDash(container) {
+    stopCurrentLoop();
+    const { canvas, ctx, w, h } = setupCanvas(container, 360);
+    let level = 1;
+    let playerY = h / 2;
+    let gravDir = 1;
+    let obstacles = [];
+    let passed = 0;
+    const goal = 8;
+    let tick = 0;
+    let paused = false;
+
+    function resetRun() {
+      playerY = h / 2;
+      gravDir = 1;
+      obstacles = [];
+      passed = 0;
+      tick = 0;
+      paused = false;
+    }
+
+    canvas.onpointerdown = (e) => {
+      e.preventDefault();
+      registerGameActivity();
+      if (paused) return;
+      gravDir *= -1;
+      playTone(gravDir === -1 ? 620 : 420, 'sine', 0.07, 0.08);
+      vibrate(15);
+    };
+
+    function loop() {
+      if (!document.body.contains(canvas)) return;
+      ctx.fillStyle = '#070b16';
+      ctx.fillRect(0, 0, w, h);
+
+      // Piso y techo neón
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, 34, w, 6);
+      ctx.fillRect(0, h - 34, w, 6);
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '700 13px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`Nível ${level}`, 14, 22);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText(`Barreiras: ${passed}/${goal}`, w - 14, 22);
+
+      const px = 64;
+      const pr = 11;
+
+      if (!paused) {
+        playerY += gravDir * (4.8 + level * 0.35);
+        playerY = Math.max(40 + pr, Math.min(h - 34 - pr, playerY));
+
+        tick++;
+        if (tick % Math.max(46, 75 - level * 4) === 0) {
+          const top = Math.random() < 0.5;
+          const barH = 95 + Math.random() * 55;
+          obstacles.push({
+            x: w + 10,
+            y: top ? 40 : h - 34 - barH,
+            w: 18,
+            h: barH,
+            scored: false
+          });
+        }
+
+        const speed = 3.8 + level * 0.45;
+        obstacles.forEach((ob) => {
+          ob.x -= speed;
+          if (px + pr > ob.x && px - pr < ob.x + ob.w && playerY + pr > ob.y && playerY - pr < ob.y + ob.h) {
+            playTone(130, 'sawtooth', 0.25, 0.15);
+            vibrate(120);
+            resetRun();
+          } else if (!ob.scored && ob.x + ob.w < px) {
+            ob.scored = true;
+            passed++;
+            playTone(720, 'triangle', 0.07, 0.07);
+            if (passed >= goal) {
+              paused = true;
+              const completed = level;
+              level++;
+              setTimeout(() => showLevelUpModal('Gravity Dash', completed, resetRun), 200);
+            }
+          }
+        });
+        obstacles = obstacles.filter((ob) => ob.x + ob.w > -20);
+      }
+
+      obstacles.forEach((ob) => {
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+      });
+
+      // Jugador neón
+      ctx.beginPath();
+      ctx.arc(px, playerY, pr, 0, Math.PI * 2);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Toque para inverter a gravidade e desviar dos lasers', w / 2, h - 10);
+
+      activeLoopId = requestAnimationFrame(loop);
+    }
+
+    resetRun();
+    activeLoopId = requestAnimationFrame(loop);
+  }
+
+  // =========================================================================
+  // INICIALIZADOR PRINCIPAL DEL SELECTOR DE 6 JUEGOS NEÓN
+  // =========================================================================
   window.initCashPlayArcade = function (rootId) {
     const root = document.getElementById(rootId);
     if (!root) return;
 
+    const gamesList = [
+      { id: 'knife', icon: '🗡️', name: 'Knife Hit', tag: 'HOT' },
+      { id: 'plinko', icon: '🟡', name: 'Plinko', tag: 'TOP' },
+      { id: 'stack', icon: '🏗️', name: 'Stack Tower', tag: '3D' },
+      { id: 'helix', icon: '🌀', name: 'Helix Smash', tag: 'PRO' },
+      { id: 'slash', icon: '💎', name: 'Gem Slash', tag: 'NEW' },
+      { id: 'gravity', icon: '⚡', name: 'Gravity', tag: 'FAST' }
+    ];
+
     root.innerHTML = `
-      <div style="background:#131c31;border:1px solid #253354;border-radius:16px;padding:16px;margin-bottom:18px;">
+      <div style="background:#131c31;border:1px solid #253354;border-radius:18px;padding:15px;margin-bottom:18px;">
         <!-- COFRE DE TIEMPO ACTIVO ESCALONADO -->
-        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:10px 12px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
           <div style="flex:1;">
             <div id="cp-chest-txt" style="font-size:12px;font-weight:700;color:#e2e8f0;margin-bottom:6px;">⏳ Baú #1: jogue 30s</div>
             <div style="height:6px;background:#1e293b;border-radius:999px;overflow:hidden;">
@@ -530,23 +1158,39 @@
           <button id="cp-chest-btn" disabled style="padding:8px 12px;border:none;border-radius:8px;background:#1e293b;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">0%</button>
         </div>
 
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;">
           <div>
-            <h3 style="margin:0;font-size:16px;">🕹️ CashPlay Arcade (Suba de Nível)</h3>
-            <p id="cp-games-quota" style="margin:4px 0 0;font-size:12px;color:#38bdf8;"></p>
+            <h3 style="margin:0;font-size:16px;font-weight:800;">🕹️ CashPlay Arcade Neon (6 Jogos)</h3>
+            <p id="cp-games-quota" style="margin:3px 0 0;font-size:11.5px;color:#38bdf8;"></p>
           </div>
-          <div style="display:flex;gap:6px;">
-            <button class="cp-tab-game" data-g="2048" style="padding:7px 11px;border-radius:8px;border:none;background:#2563eb;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">2048</button>
-            <button class="cp-tab-game" data-g="memory" style="padding:7px 11px;border-radius:8px;border:none;background:#1e293b;color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;">Memory</button>
-            <button class="cp-tab-game" data-g="serpent" style="padding:7px 11px;border-radius:8px;border:none;background:#1e293b;color:#cbd5e1;font-size:12px;font-weight:700;cursor:pointer;">Serpent</button>
-          </div>
+          <button id="cp-sound-btn" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">🔊</button>
         </div>
+
+        <!-- CUADRÍCULA DE 6 JUEGOS -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px;">
+          ${gamesList
+            .map(
+              (g) => `
+            <button class="cp-tab-game" data-g="${g.id}" style="position:relative;padding:9px 6px;border-radius:11px;border:1px solid #263356;background:#0f172a;color:#cbd5e1;font-size:11.5px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;">
+              <span style="position:absolute;top:4px;right:5px;font-size:8px;background:rgba(56,189,248,0.18);color:#38bdf8;padding:1px 4px;border-radius:4px;">${g.tag}</span>
+              <span style="font-size:19px;">${g.icon}</span>
+              <span>${g.name}</span>
+            </button>`
+            )
+            .join('')}
+        </div>
+
         <div id="cp-arcade-stage"></div>
       </div>
     `;
 
     updateQuotaBadge();
     updateChestUI();
+
+    document.getElementById('cp-sound-btn').onclick = function () {
+      soundEnabled = !soundEnabled;
+      this.textContent = soundEnabled ? '🔊' : '🔇';
+    };
 
     document.getElementById('cp-chest-btn').onclick = () => {
       if (activeSeconds < getChestTargetSeconds() || getChestClaims() >= CHEST_DAILY_LIMIT) return;
@@ -559,18 +1203,22 @@
     const btns = root.querySelectorAll('.cp-tab-game');
 
     function selectGame(name) {
-      if (serpentTimer) clearInterval(serpentTimer);
+      stopCurrentLoop();
       btns.forEach((b) => {
         const active = b.dataset.g === name;
-        b.style.background = active ? '#2563eb' : '#1e293b';
+        b.style.background = active ? 'linear-gradient(135deg,#1d4ed8,#2563eb)' : '#0f172a';
+        b.style.borderColor = active ? '#60a5fa' : '#263356';
         b.style.color = active ? '#fff' : '#cbd5e1';
       });
-      if (name === '2048') mount2048(stage);
-      if (name === 'memory') mountMemory(stage);
-      if (name === 'serpent') mountSerpent(stage);
+      if (name === 'knife') mountKnifeHit(stage);
+      if (name === 'plinko') mountPlinko(stage);
+      if (name === 'stack') mountStackTower(stage);
+      if (name === 'helix') mountHelixSmash(stage);
+      if (name === 'slash') mountGemSlasher(stage);
+      if (name === 'gravity') mountGravityDash(stage);
     }
 
     btns.forEach((b) => (b.onclick = () => selectGame(b.dataset.g)));
-    selectGame('2048');
+    selectGame('knife');
   };
 })();
