@@ -3,7 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>CashPlay — Jogue e Ganhe Recompensas</title>
+  <title>CashPlay — Jogue Mini-Jogos Grátis e Ganhe Recompensas via PIX e PayPal</title>
+  <meta name="description" content="Divirta-se nos 6 mini-jogos arcade do CashPlay (Knife Hit, Plinko, Stack Tower, Helix Smash, Gem Slash e Gravity), abra baús diários e troque suas moedas por recompensas via PIX, PayPal ou USDT sem precisar baixar nada." />
+  <meta name="keywords" content="CashPlay, app para ganhar dinheiro jogando, mini jogos que pagam no pix, jogar e ganhar recompensas, jogos arcade online gratis, app de recompensas paypal" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://cashplayapp.sbs/" />
+
+  <!-- Open Graph / Redes Sociais -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="CashPlay" />
+  <meta property="og:title" content="CashPlay — Jogue Mini-Jogos Arcade e Acumule Recompensas" />
+  <meta property="og:description" content="6 mini-jogos viciantes direto no navegador. Suba de nível, gire o Reator de Energia, abra baús e resgate via PIX ou PayPal." />
+  <meta property="og:url" content="https://cashplayapp.sbs/" />
+  <meta property="og:image" content="https://cashplayapp.sbs/icon-512.png" />
+
+  <!-- Dados Estruturados Schema.org para Google Rich Results -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "CashPlay",
+    "url": "https://cashplayapp.sbs/",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Android, Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Plataforma de mini-jogos arcade casual com sistema de recompensas diárias, baús de tempo ativo e resgate via PIX, PayPal e USDT."
+  }
+  </script>
   <meta name="theme-color" content="#0b1120" />
   <link rel="manifest" href="/manifest.json" />
   <style>
@@ -222,6 +252,12 @@
 
       <!-- SECCIÓN ARCADE + COFRE DE 3 MINUTOS ACTIVOS -->
       <div id="cashplay-arcade-root"></div>
+
+      <!-- GUIA RÁPIDO PARA BUSCADORES (SEO) -->
+      <div style="background:#131c31;border:1px solid #253354;border-radius:14px;padding:13px 14px;margin-bottom:14px;font-size:11.5px;color:#94a3b8;line-height:1.5;">
+        <strong style="color:#e2e8f0;display:block;margin-bottom:4px;">Sobre o CashPlay Arcade & Recompensas</strong>
+        O <strong>CashPlay</strong> é um portal gratuito de mini-jogos casuais online (<em>Knife Hit Neon, Plinko Arcade, Stack Tower, Helix Smash, Gem Slasher e Gravity Dash</em>) onde você acumula pontos jogando direto no navegador ou no app Android e troca suas moedas por recompensas via <strong>PIX, PayPal ou USDT</strong>.
+      </div>
 
       <!-- ENLACES LEGALES VISIBLES PARA APROBACIÓN DE OFFERWALLS -->
       <div class="legal-links">
@@ -575,7 +611,7 @@
 
     window.loadUser();
   </script>
-  <script src="/games.js?v=4.2"></script>
+  <script src="/games.js?v=4.3"></script>
   <script>
     if (typeof window.initCashPlayArcade === 'function') {
       window.initCashPlayArcade('cashplay-arcade-root');

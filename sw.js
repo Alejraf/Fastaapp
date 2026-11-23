@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cashplay-v4-2-0';
+const CACHE_NAME = 'cashplay-v4-3-0';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
